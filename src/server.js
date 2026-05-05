@@ -8,20 +8,23 @@ const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   try {
+    // 1. Test DB connection
     await sequelize.authenticate();
-    console.log("✅ Connected to DB:", process.env.DB_NAME);
+    console.log("✅ Database connected successfully");
 
-    // ⚠️ Không dùng force nữa
-    await sequelize.sync({ alter: true });
+    // 2. Sync DB (CHỈ DÙNG SAFE MODE)
+    await sequelize.sync();
 
     console.log("🔥 Database synced");
 
+    // 3. Start server
     app.listen(PORT, () => {
-      console.log(`🚀 Server running at http://localhost:${PORT}`);
+      console.log(`🚀 Server running on port ${PORT}`);
     });
 
   } catch (err) {
     console.error("❌ Server start error:", err);
+    process.exit(1);
   }
 }
 

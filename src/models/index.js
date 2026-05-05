@@ -5,14 +5,35 @@ const User = require("./User");
 const Field = require("./Field");
 const Booking = require("./Booking");
 
-// 🔥 relationships
-User.hasMany(Booking, { foreignKey: "userId" });
-Booking.belongsTo(User, { foreignKey: "userId" });
+// ===============================
+// 🔗 RELATIONSHIPS (ASSOCIATIONS)
+// ===============================
 
-Field.hasMany(Booking, { foreignKey: "fieldId" });
-Booking.belongsTo(Field, { foreignKey: "fieldId" });
+// User - Booking (1-N)
+User.hasMany(Booking, {
+  foreignKey: "userId",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
 
-// 🔥 export
+Booking.belongsTo(User, {
+  foreignKey: "userId",
+});
+
+// Field - Booking (1-N)
+Field.hasMany(Booking, {
+  foreignKey: "fieldId",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Booking.belongsTo(Field, {
+  foreignKey: "fieldId",
+});
+
+// ===============================
+// 🔥 EXPORT ALL
+// ===============================
 module.exports = {
   sequelize,
   User,

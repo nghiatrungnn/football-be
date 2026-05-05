@@ -1,10 +1,10 @@
-const { Field } = require("../models");
+const { field } = require("../models");
 
 // ===== CREATE =====
 exports.create = async (req, res) => {
   try {
-    const field = await Field.create(req.body);
-    res.json(field);
+    const newField = await field.create(req.body);
+    res.json(newField);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -13,9 +13,10 @@ exports.create = async (req, res) => {
 // ===== GET ALL =====
 exports.getAll = async (req, res) => {
   try {
-    const fields = await Field.findAll({
+    const fields = await field.findAll({
       order: [["createdAt", "DESC"]],
     });
+
     res.json(fields);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -25,13 +26,15 @@ exports.getAll = async (req, res) => {
 // ===== GET DETAIL =====
 exports.getById = async (req, res) => {
   try {
-    const field = await Field.findByPk(req.params.id);
+    const oneField = await field.findByPk(req.params.id);
 
-    if (!field) {
-      return res.status(404).json({ message: "Field not found" });
+    if (!oneField) {
+      return res.status(404).json({
+        message: "Field not found",
+      });
     }
 
-    res.json(field);
+    res.json(oneField);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -40,14 +43,17 @@ exports.getById = async (req, res) => {
 // ===== UPDATE =====
 exports.update = async (req, res) => {
   try {
-    const field = await Field.findByPk(req.params.id);
+    const oneField = await field.findByPk(req.params.id);
 
-    if (!field) {
-      return res.status(404).json({ message: "Field not found" });
+    if (!oneField) {
+      return res.status(404).json({
+        message: "Field not found",
+      });
     }
 
-    await field.update(req.body);
-    res.json(field);
+    await oneField.update(req.body);
+
+    res.json(oneField);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -56,14 +62,19 @@ exports.update = async (req, res) => {
 // ===== DELETE =====
 exports.delete = async (req, res) => {
   try {
-    const field = await Field.findByPk(req.params.id);
+    const oneField = await field.findByPk(req.params.id);
 
-    if (!field) {
-      return res.status(404).json({ message: "Field not found" });
+    if (!oneField) {
+      return res.status(404).json({
+        message: "Field not found",
+      });
     }
 
-    await field.destroy();
-    res.json({ message: "Deleted successfully" });
+    await oneField.destroy();
+
+    res.json({
+      message: "Deleted successfully",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

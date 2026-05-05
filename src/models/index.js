@@ -10,24 +10,24 @@ const Booking = require("./booking");
 // ===============================
 
 // User - Booking (1-N)
-User.hasMany(Booking, {
+User.hasMany(booking, {
   foreignKey: "userId",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
-Booking.belongsTo(User, {
+Booking.belongsTo(user, {
   foreignKey: "userId",
 });
 
 // Field - Booking (1-N)
-Field.hasMany(Booking, {
+Field.hasMany(booking, {
   foreignKey: "fieldId",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
-Booking.belongsTo(Field, {
+Booking.belongsTo(field, {
   foreignKey: "fieldId",
 });
 
@@ -36,7 +36,7 @@ Booking.belongsTo(Field, {
 // ===============================
 module.exports = {
   sequelize,
-  User,
-  Field,
-  Booking,
+  user,
+  field,
+  booking,
 };

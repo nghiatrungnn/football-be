@@ -1,9 +1,9 @@
 const sequelize = require("../config/db");
 
 // 🔥 import models
-const User = require("./User");
-const Field = require("./Field");
-const Booking = require("./Booking");
+const User = require("./user");
+const Field = require("./field");
+const Booking = require("./booking");
 
 // ===============================
 // 🔗 RELATIONSHIPS (ASSOCIATIONS)

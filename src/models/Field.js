@@ -1,7 +1,7 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
-const Field = sequelize.define("Field", {
+const Field = sequelize.define("field", {
   name: {
     type: DataTypes.STRING,
     allowNull: false,

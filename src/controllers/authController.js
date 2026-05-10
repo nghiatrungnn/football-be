@@ -1,4 +1,4 @@
-const { User } = require("../models");
+const { user: User } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
@@ -23,6 +23,26 @@ const formatUser = (user) => ({
   role: user.role,
   avatar: user.avatar || null,
 });
+
+// ================= GET ALL USERS =================
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: {
+        exclude: ["password"], // ẩn password
+      },
+    });
+
+    return res.json(users);
+  } catch (error) {
+    console.error("Get users error:", error);
+
+    return res.status(500).json({
+      message: "Get users failed",
+      error: error.message,
+    });
+  }
+};
 
 // ================= REGISTER =================
 exports.register = async (req, res) => {

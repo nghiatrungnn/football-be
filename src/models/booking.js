@@ -4,25 +4,32 @@ const sequelize = require("../config/db");
 const Booking = sequelize.define(
   "booking",
   {
+    // ================= ID =================
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
 
-    // 🔥 liên kết user (có thể null nếu khách vãng lai)
+    // ================= USER =================
     userId: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
 
-    // 🔥 liên kết sân
+    // ================= FIELD =================
     fieldId: {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
 
-    // 🔥 thời gian
+    // ================= BOOKING DATE =================
+    booking_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+
+    // ================= TIME =================
     start_time: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -33,37 +40,57 @@ const Booking = sequelize.define(
       allowNull: false,
     },
 
-    // 🔥 thông tin người đặt (QUAN TRỌNG)
+    // ================= CUSTOMER INFO =================
+    // allowNull true để HOLD slot không bị lỗi
     name: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      defaultValue: null,
     },
 
     phone: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      defaultValue: null,
     },
 
     email: {
       type: DataTypes.STRING,
       allowNull: true,
+      defaultValue: null,
     },
 
-    // 🔥 trạng thái
+    // ================= STATUS =================
     status: {
-      type: DataTypes.ENUM("pending", "confirmed", "cancelled"),
-      defaultValue: "confirmed",
+      type: DataTypes.ENUM(
+        "holding",
+        "booked",
+        "cancelled"
+      ),
+      allowNull: false,
+      defaultValue: "holding",
     },
 
-    // 🔥 tổng tiền
+    // ================= HOLD EXPIRE =================
+    hold_until: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
+
+    // ================= PRICE =================
     total_price: {
       type: DataTypes.INTEGER,
+      allowNull: false,
       defaultValue: 0,
     },
   },
   {
     tableName: "bookings",
     timestamps: true,
+
+    // tránh sequelize tự đổi tên bảng
+    freezeTableName: true,
   }
 );
 

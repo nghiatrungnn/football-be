@@ -7,232 +7,548 @@ const {
 
 const { Op } = require("sequelize");
 
-// ================= GET ALL BOOKINGS =================
-exports.getAllBookings = async (req, res) => {
-  try {
-    const bookings = await Booking.findAll({
-      include: [
-        {
-          model: User,
-          attributes: ["id", "name", "email"],
-        },
-        {
-          model: Field,
-          attributes: ["id", "name", "address", "price_per_hour"],
-        },
-      ],
-      order: [["createdAt", "DESC"]],
-    });
+// ================= GET IO =================
+const getIO = (req) => req.app.get("io");
 
-    res.json(bookings);
-  } catch (err) {
-    console.error("Get all bookings error:", err);
-
-    res.status(500).json({
-      message: "Get bookings failed",
-      error: err.message,
-    });
-  }
+// ================= FORMAT DATE ONLY =================
+const formatDateOnly = (date) => {
+  return new Date(date).toISOString().split("T")[0];
 };
 
-// ================= GET MY BOOKINGS =================
-exports.getMyBookings = async (req, res) => {
+// ================= CLEAN EXPIRED HOLDS =================
+const cleanExpiredHold = async (io = null) => {
   try {
-    const userId = req.user.id;
-
-    const bookings = await Booking.findAll({
-      where: { userId },
-
-      include: [
-        {
-          model: Field,
-          attributes: ["id", "name", "address", "price_per_hour"],
+    const expired = await Booking.findAll({
+      where: {
+        status: "holding",
+        hold_until: {
+          [Op.lt]: new Date(),
         },
-      ],
-
-      order: [["start_time", "DESC"]],
+      },
     });
 
-    res.json(bookings);
-  } catch (err) {
-    console.error("Get my bookings error:", err);
-
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-};
-
-// ================= CREATE BOOKING =================
-exports.createBooking = async (req, res) => {
-  const t = await sequelize.transaction();
-
-  try {
-    const {
-      field_id,
-      start_time,
-      end_time,
-      name,
-      phone,
-      email,
-    } = req.body;
-
-    // ================= VALIDATE =================
-    if (!field_id || !start_time || !end_time || !name || !phone) {
-      throw new Error("Missing required fields");
+    if (io && expired.length > 0) {
+      expired.forEach((b) => {
+        io.to(`field_${b.fieldId}`).emit("slot-released", {
+          field_id: b.fieldId,
+          booking_date: formatDateOnly(b.start_time),
+          start_time: b.start_time,
+          end_time: b.end_time,
+        });
+      });
     }
 
-    if (new Date(end_time) <= new Date(start_time)) {
-      throw new Error("Invalid time");
+    await Booking.destroy({
+      where: {
+        status: "holding",
+        hold_until: {
+          [Op.lt]: new Date(),
+        },
+      },
+    });
+  } catch (err) {
+    console.error("cleanExpiredHold error:", err);
+  }
+};
+
+// ================= HOLD SLOT =================
+const holdSlot = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const io = getIO(req);
+
+    await cleanExpiredHold(io);
+
+    const { field_id, booking_date, start_time } = req.body;
+
+    if (!field_id || !booking_date || !start_time) {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields",
+      });
+    }
+
+    const fixedTime = start_time.toString().padStart(8, "0");
+
+    const startDateTime = new Date(
+      `${booking_date}T${fixedTime}`
+    );
+
+    const endDateTime = new Date(
+      startDateTime.getTime() + 60 * 60 * 1000
+    );
+
+    if (isNaN(startDateTime.getTime())) {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid time",
+      });
+    }
+
+    // ================= CHECK SAME HOLD =================
+    const existingHold = await Booking.findOne({
+      where: {
+        userId: req.user.id,
+        fieldId: field_id,
+        start_time: startDateTime,
+        status: "holding",
+        hold_until: {
+          [Op.gt]: new Date(),
+        },
+      },
+      transaction,
+    });
+
+    // ================= TOGGLE OFF =================
+    if (existingHold) {
+      await existingHold.destroy({ transaction });
+
+      await transaction.commit();
+
+      // 🔥 emit realtime release
+      io.to(`field_${field_id}`).emit("slot-released", {
+        field_id,
+        booking_date,
+        start_time: existingHold.start_time,
+        end_time: existingHold.end_time,
+      });
+
+      return res.json({
+        success: true,
+        cancelled: true,
+        message: "Hold cancelled",
+      });
+    }
+
+    // ================= AUTO CLEAR OLD HOLDS =================
+    const oldHolds = await Booking.findAll({
+      where: {
+        userId: req.user.id,
+        status: "holding",
+      },
+      transaction,
+    });
+
+    for (const old of oldHolds) {
+
+      // 🔥 emit realtime release cho client khác
+      io.to(`field_${old.fieldId}`).emit("slot-released", {
+        field_id: old.fieldId,
+        booking_date: formatDateOnly(old.start_time),
+        start_time: old.start_time,
+        end_time: old.end_time,
+      });
+
+      await old.destroy({ transaction });
     }
 
     // ================= CHECK CONFLICT =================
     const conflict = await Booking.findOne({
       where: {
         fieldId: field_id,
-
         status: {
-          [Op.ne]: "cancelled",
+          [Op.in]: ["holding", "booked"],
         },
-
         [Op.and]: [
           {
             start_time: {
-              [Op.lt]: new Date(end_time),
+              [Op.lt]: endDateTime,
             },
           },
           {
             end_time: {
-              [Op.gt]: new Date(start_time),
+              [Op.gt]: startDateTime,
             },
           },
         ],
       },
-
-      lock: t.LOCK.UPDATE,
-      transaction: t,
+      transaction,
+      lock: transaction.LOCK.UPDATE,
     });
 
     if (conflict) {
-      throw new Error("Time slot already booked");
+      await transaction.rollback();
+
+      return res.status(400).json({
+        success: false,
+        message: "Slot already taken",
+      });
     }
 
-    // ================= GET FIELD =================
-    const field = await Field.findByPk(field_id);
+    // ================= CREATE HOLD =================
+    const holdUntil = new Date(
+      Date.now() + 5 * 60 * 1000
+    );
 
-    if (!field) {
-      throw new Error("Field not found");
-    }
-
-    // ================= CALCULATE PRICE =================
-    const hours =
-      (new Date(end_time) - new Date(start_time)) / 3600000;
-
-    const total = hours * field.price_per_hour;
-
-    // ================= CREATE BOOKING =================
     const booking = await Booking.create(
       {
-        userId: req.user?.id || null,
-
+        userId: req.user.id,
         fieldId: field_id,
-
-        start_time,
-        end_time,
-
-        name,
-        phone,
-        email,
-
-        status: "confirmed",
-
-        total_price: total,
+        start_time: startDateTime,
+        end_time: endDateTime,
+        status: "holding",
+        hold_until: holdUntil,
+        total_price: 0,
       },
       {
-        transaction: t,
+        transaction,
       }
     );
 
-    await t.commit();
+    await transaction.commit();
 
-    res.json({
-      message: "Booking success",
+    // ================= SOCKET HELD =================
+    io.to(`field_${field_id}`).emit("slot-held", {
+      field_id,
+      booking_date,
+      start_time: booking.start_time,
+      end_time: booking.end_time,
+      user_id: req.user.id,
+      user_name: req.user.name,
+    });
+
+    return res.json({
+      success: true,
       booking,
     });
+
   } catch (err) {
-    await t.rollback();
+    try {
+      await transaction.rollback();
+    } catch (_) {}
 
-    console.error("Create booking error:", err);
+    console.error("holdSlot error:", err);
 
-    res.status(400).json({
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= CANCEL HOLD =================
+const cancelHold = async (req, res) => {
+  try {
+    const io = getIO(req);
+
+    const { field_id, booking_date, start_time } = req.body;
+
+    if (!field_id || !booking_date || !start_time) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields",
+      });
+    }
+
+    const fixedTime = start_time.toString().padStart(8, "0");
+
+    const startDateTime = new Date(
+      `${booking_date}T${fixedTime}`
+    );
+
+    const booking = await Booking.findOne({
+      where: {
+        userId: req.user.id,
+        fieldId: field_id,
+        start_time: startDateTime,
+        status: "holding",
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Hold not found",
+      });
+    }
+
+    await booking.destroy();
+
+    // 🔥 realtime release cho tất cả client
+    io.to(`field_${field_id}`).emit("slot-released", {
+      field_id,
+      booking_date,
+      start_time: booking.start_time,
+      end_time: booking.end_time,
+    });
+
+    return res.json({
+      success: true,
+      message: "Hold cancelled",
+    });
+
+  } catch (err) {
+    console.error("cancelHold error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= CREATE BOOKING =================
+const createBooking = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const io = getIO(req);
+
+    const { field_id, booking_date, start_time } = req.body;
+
+    if (!field_id || !booking_date || !start_time) {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields",
+      });
+    }
+
+    const fixedTime = start_time.toString().padStart(8, "0");
+
+    const startDateTime = new Date(
+      `${booking_date}T${fixedTime}`
+    );
+
+    const booking = await Booking.findOne({
+      where: {
+        userId: req.user.id,
+        fieldId: field_id,
+        start_time: startDateTime,
+        status: "holding",
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!booking) {
+      await transaction.rollback();
+
+      return res.status(404).json({
+        success: false,
+        message: "No holding slot found",
+      });
+    }
+
+    booking.status = "booked";
+    booking.hold_until = null;
+
+    await booking.save({ transaction });
+
+    await transaction.commit();
+
+    io.to(`field_${field_id}`).emit("slot-booked", {
+      field_id,
+      booking_date,
+      start_time: booking.start_time,
+      end_time: booking.end_time,
+      user_id: req.user.id,
+    });
+
+    return res.json({
+      success: true,
+      message: "Booking created successfully",
+      booking,
+    });
+
+  } catch (err) {
+    try {
+      await transaction.rollback();
+    } catch (_) {}
+
+    console.error("createBooking error:", err);
+
+    return res.status(500).json({
+      success: false,
       message: err.message,
     });
   }
 };
 
 // ================= GET BOOKINGS BY DATE =================
-exports.getByDate = async (req, res) => {
+const getByDate = async (req, res) => {
   try {
-    const { field_id, date } = req.query;
+    await cleanExpiredHold(getIO(req));
 
-    if (!field_id || !date) {
+    const { field_id, booking_date } = req.query;
+
+    if (!field_id || !booking_date) {
       return res.status(400).json({
-        message: "field_id and date are required",
+        success: false,
+        message: "Missing field_id or booking_date",
       });
     }
 
-    const start = new Date(date + " 00:00:00");
-    const end = new Date(date + " 23:59:59");
+    const startDay = new Date(`${booking_date}T00:00:00`);
+
+    const endDay = new Date(`${booking_date}T23:59:59`);
 
     const bookings = await Booking.findAll({
       where: {
         fieldId: field_id,
 
-        status: {
-          [Op.ne]: "cancelled",
+        start_time: {
+          [Op.between]: [startDay, endDay],
         },
 
-        start_time: {
-          [Op.between]: [start, end],
+        status: {
+          [Op.in]: ["holding", "booked"],
         },
       },
+
+      include: [
+        {
+          model: User,
+          attributes: ["id", "name"],
+        },
+      ],
 
       order: [["start_time", "ASC"]],
     });
 
-    res.json(bookings);
-  } catch (err) {
-    console.error("Get bookings by date error:", err);
+    const result = bookings.map((b) => ({
+      id: b.id,
+      fieldId: b.fieldId,
+      userId: b.userId,
+      start_time: b.start_time,
+      end_time: b.end_time,
+      status: b.status,
+      hold_until: b.hold_until,
+      user: b.user,
+    }));
 
-    res.status(500).json({
+    return res.json({
+      success: true,
+      bookings: result,
+    });
+
+  } catch (err) {
+    console.error("getByDate error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= GET MY BOOKINGS =================
+const getMyBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.findAll({
+      where: {
+        userId: req.user.id,
+      },
+
+      include: [
+        {
+          model: Field,
+        },
+      ],
+
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.json({
+      success: true,
+      bookings,
+    });
+
+  } catch (err) {
+    console.error("getMyBookings error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= GET ALL BOOKINGS =================
+const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.findAll({
+      include: [
+        {
+          model: Field,
+        },
+        {
+          model: User,
+          attributes: ["id", "name", "email"],
+        },
+      ],
+
+      order: [["createdAt", "DESC"]],
+    });
+
+    return res.json({
+      success: true,
+      bookings,
+    });
+
+  } catch (err) {
+    console.error("getAllBookings error:", err);
+
+    return res.status(500).json({
+      success: false,
       message: err.message,
     });
   }
 };
 
 // ================= CANCEL BOOKING =================
-exports.cancel = async (req, res) => {
+const cancel = async (req, res) => {
   try {
+    const io = getIO(req);
+
     const booking = await Booking.findByPk(req.params.id);
 
     if (!booking) {
       return res.status(404).json({
+        success: false,
         message: "Booking not found",
       });
     }
 
-    await booking.update({
-      status: "cancelled",
+    booking.status = "cancelled";
+
+    await booking.save();
+
+    io.to(`field_${booking.fieldId}`).emit("slot-released", {
+      field_id: booking.fieldId,
+      booking_date: formatDateOnly(booking.start_time),
+      start_time: booking.start_time,
+      end_time: booking.end_time,
     });
 
-    res.json({
-      message: "Cancelled",
+    return res.json({
+      success: true,
+      message: "Booking cancelled",
     });
+
   } catch (err) {
-    console.error("Cancel booking error:", err);
+    console.error("cancel booking error:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
       message: err.message,
     });
   }
+};
+
+// ================= EXPORTS =================
+module.exports = {
+  holdSlot,
+  cancelHold,
+  createBooking,
+  getByDate,
+  getMyBookings,
+  getAllBookings,
+  cancel,
 };

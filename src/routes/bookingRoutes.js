@@ -1,20 +1,52 @@
 const router = require("express").Router();
+
 const auth = require("../middlewares/auth");
+
+// ================= CONTROLLER =================
 const ctrl = require("../controllers/bookingController");
 
-// ================= CREATE BOOKING =================
-router.post("/", ctrl.createBooking);
+// ================= SAFETY CHECK =================
+if (typeof auth !== "function") {
+  throw new Error("❌ auth middleware is not a function");
+}
 
-// ================= GET BOOKINGS BY DATE =================
-router.get("/", ctrl.getByDate);
+const requiredControllers = [
+  "holdSlot",
+  "cancelHold",
+  "createBooking",
+  "getByDate",
+  "getMyBookings",
+  "getAllBookings",
+  "cancel",
+];
 
-// ================= GET MY BOOKINGS =================
+requiredControllers.forEach((fn) => {
+  if (typeof ctrl[fn] !== "function") {
+    throw new Error(`❌ Controller missing or invalid: ${fn}`);
+  }
+});
+
+// ================= ROUTES =================
+
+// hold slot
+router.post("/hold", auth, ctrl.holdSlot);
+
+// cancel hold
+router.post("/cancel-hold", auth, ctrl.cancelHold);
+
+// create booking
+router.post("/", auth, ctrl.createBooking);
+
+// get bookings by date
+router.get("/", auth, ctrl.getByDate);
+
+// get my bookings
 router.get("/my", auth, ctrl.getMyBookings);
 
-// ================= GET ALL BOOKINGS =================
-router.get("/all", ctrl.getAllBookings);
+// admin - get all bookings
+router.get("/all", auth, ctrl.getAllBookings);
 
-// ================= CANCEL =================
+// cancel booking
 router.put("/:id/cancel", auth, ctrl.cancel);
 
 module.exports = router;

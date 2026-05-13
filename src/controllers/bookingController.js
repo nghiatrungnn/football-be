@@ -110,7 +110,6 @@ const holdSlot = async (req, res) => {
 
       await transaction.commit();
 
-      // 🔥 emit realtime release
       io.to(`field_${field_id}`).emit("slot-released", {
         field_id,
         booking_date,
@@ -135,8 +134,6 @@ const holdSlot = async (req, res) => {
     });
 
     for (const old of oldHolds) {
-
-      // 🔥 emit realtime release cho client khác
       io.to(`field_${old.fieldId}`).emit("slot-released", {
         field_id: old.fieldId,
         booking_date: formatDateOnly(old.start_time),
@@ -189,8 +186,13 @@ const holdSlot = async (req, res) => {
       {
         userId: req.user.id,
         fieldId: field_id,
+
+        // 🔥 FIX
+        booking_date,
+
         start_time: startDateTime,
         end_time: endDateTime,
+
         status: "holding",
         hold_until: holdUntil,
         total_price: 0,
@@ -202,7 +204,6 @@ const holdSlot = async (req, res) => {
 
     await transaction.commit();
 
-    // ================= SOCKET HELD =================
     io.to(`field_${field_id}`).emit("slot-held", {
       field_id,
       booking_date,
@@ -269,7 +270,6 @@ const cancelHold = async (req, res) => {
 
     await booking.destroy();
 
-    // 🔥 realtime release cho tất cả client
     io.to(`field_${field_id}`).emit("slot-released", {
       field_id,
       booking_date,
@@ -336,6 +336,9 @@ const createBooking = async (req, res) => {
       });
     }
 
+    // 🔥 FIX
+    booking.booking_date = booking_date;
+
     booking.status = "booked";
     booking.hold_until = null;
 
@@ -378,24 +381,34 @@ const getByDate = async (req, res) => {
 
     const { field_id, booking_date } = req.query;
 
+    // 🔥 nếu không truyền query -> trả tất cả
     if (!field_id || !booking_date) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing field_id or booking_date",
+
+      const bookings = await Booking.findAll({
+        include: [
+          {
+            model: User,
+            attributes: ["id", "name"],
+          },
+          {
+            model: Field,
+          },
+        ],
+
+        order: [["start_time", "ASC"]],
+      });
+
+      return res.json({
+        success: true,
+        bookings,
       });
     }
-
-    const startDay = new Date(`${booking_date}T00:00:00`);
-
-    const endDay = new Date(`${booking_date}T23:59:59`);
 
     const bookings = await Booking.findAll({
       where: {
         fieldId: field_id,
 
-        start_time: {
-          [Op.between]: [startDay, endDay],
-        },
+        booking_date,
 
         status: {
           [Op.in]: ["holding", "booked"],
@@ -415,6 +428,7 @@ const getByDate = async (req, res) => {
     const result = bookings.map((b) => ({
       id: b.id,
       fieldId: b.fieldId,
+      booking_date: b.booking_date,
       userId: b.userId,
       start_time: b.start_time,
       end_time: b.end_time,

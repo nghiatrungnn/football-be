@@ -38,7 +38,7 @@ router.post("/cancel-hold", auth, ctrl.cancelHold);
 router.post("/", auth, ctrl.createBooking);
 
 // get bookings by date
-router.get("/", auth, ctrl.getByDate);
+router.get("/", ctrl.getByDate);
 
 // get my bookings
 router.get("/my", auth, ctrl.getMyBookings);

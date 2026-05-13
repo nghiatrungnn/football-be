@@ -1,6 +1,6 @@
 const router = require("express").Router();
 
-const auth = require("../middlewares/auth");
+const auth = require("../middlewares/authMiddleware");
 
 // ================= CONTROLLER =================
 const ctrl = require("../controllers/bookingController");
@@ -44,7 +44,7 @@ router.get("/", auth, ctrl.getByDate);
 router.get("/my", auth, ctrl.getMyBookings);
 
 // admin - get all bookings
-router.get("/all", auth, ctrl.getAllBookings);
+router.get("/all", ctrl.getAllBookings);
 
 // cancel booking
 router.put("/:id/cancel", auth, ctrl.cancel);

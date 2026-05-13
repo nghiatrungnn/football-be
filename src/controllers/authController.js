@@ -2,7 +2,7 @@ const { user: User } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
-
+console.log("LOGIN SECRET:", process.env.JWT_SECRET);
 // ================= GENERATE TOKEN =================
 const generateToken = (user) => {
   return jwt.sign(

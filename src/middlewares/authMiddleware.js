@@ -1,41 +1,41 @@
 const jwt = require("jsonwebtoken");
 
+/**
+ * AUTH MIDDLEWARE (JWT)
+ * Dùng cho tất cả route cần đăng nhập
+ */
 module.exports = (req, res, next) => {
   try {
-    // GET TOKEN
-    const authHeader =
-      req.headers.authorization;
+    // ================= GET TOKEN =================
+    const authHeader = req.headers.authorization;
 
-    // NO TOKEN
     if (!authHeader) {
       return res.status(401).json({
-        message: "No token",
+        message: "No token provided",
       });
     }
 
-    // FORMAT:
-    // Bearer TOKEN
-    const token =
-      authHeader.split(" ")[1];
+    // Format: Bearer <token>
+    const token = authHeader.split(" ")[1];
 
-    // VERIFY TOKEN
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    if (!token) {
+      return res.status(401).json({
+        message: "Invalid token format (must be Bearer <token>)",
+      });
+    }
 
-    // SAVE USER
+    // ================= VERIFY TOKEN =================
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // ================= ATTACH USER =================
     req.user = decoded;
 
     next();
   } catch (err) {
-    console.log(
-      "Auth middleware error:",
-      err
-    );
+    console.log("JWT AUTH ERROR:", err.message);
 
     return res.status(401).json({
-      message: "Invalid token",
+      message: "Unauthorized - invalid or expired token",
     });
   }
 };

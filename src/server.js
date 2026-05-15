@@ -21,215 +21,219 @@ const io = new Server(server, {
   },
 });
 
-// ================= ATTACH IO =================
 app.set("io", io);
 
-// inject io vào req
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// ================= SOCKET CONNECTION =================
+// ================= HELPERS =================
+const HOLD_MINUTES = 5;
+
+// ================= SOCKET =================
 io.on("connection", (socket) => {
   console.log("🔥 User connected:", socket.id);
 
-  // ================= JOIN FIELD =================
-  socket.on("join-field", (fieldId) => {
+  // JOIN FIELD
+  socket.on("join_field", (fieldId) => {
     if (!fieldId) return;
-
-    // 🔥 dùng field- thay vì field_
-    const room = `field-${fieldId}`;
-
-    socket.join(room);
-
-    console.log(
-      `📌 ${socket.id} joined ${room}`
-    );
+    socket.join(`field-${fieldId}`);
   });
 
-  // ================= LEAVE FIELD =================
-  socket.on("leave-field", (fieldId) => {
+  // LEAVE FIELD
+  socket.on("leave_field", (fieldId) => {
     if (!fieldId) return;
-
-    const room = `field-${fieldId}`;
-
-    socket.leave(room);
-
-    console.log(
-      `❌ ${socket.id} left ${room}`
-    );
+    socket.leave(`field-${fieldId}`);
   });
 
-  // ================= HOLD SLOT =================
-  socket.on("hold-slot", (data) => {
-    if (!data?.field_id) return;
+  // ================= HOLD SLOT (FIXED - AUTO 5 MIN) =================
+  socket.on("hold_slot", async (data) => {
+    try {
+      if (!data?.field_id) return;
 
-    console.log("🟠 HOLD SLOT:", data);
+      const holdUntil = new Date(Date.now() + HOLD_MINUTES * 60 * 1000);
 
-    io.to(`field-${data.field_id}`).emit(
-      "slot-held",
-      {
-        field_id: data.field_id,
+      // UPSERT HOLD
+      await Booking.destroy({
+        where: {
+          fieldId: data.field_id,
+          start_time: data.start_time,
+          status: "holding",
+        },
+      });
 
-        booking_date:
-            data.booking_date,
-
-        start_time:
-            data.start_time,
-
-        // 🔥 QUAN TRỌNG
+      await Booking.create({
+        fieldId: data.field_id,
         userId: data.userId,
-      }
-    );
+        booking_date: data.booking_date,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        status: "holding",
+        hold_until: holdUntil,
+      });
+
+      io.to(`field-${data.field_id}`).emit("slot_update", {
+        field_id: data.field_id,
+        booking_date: data.booking_date,
+        time: data.start_time,
+        status: "holding",
+        userId: data.userId,
+      });
+
+      console.log("🟠 HOLD 5 MIN:", data.start_time);
+    } catch (err) {
+      console.error("❌ HOLD SLOT ERROR:", err);
+    }
   });
 
   // ================= RELEASE SLOT =================
-  socket.on("release-slot", (data) => {
-    if (!data?.field_id) return;
+  socket.on("release_slot", async (data) => {
+    try {
+      if (!data?.field_id) return;
 
-    console.log(
-      "⚪ RELEASE SLOT:",
-      data
-    );
+      await Booking.destroy({
+        where: {
+          fieldId: data.field_id,
+          start_time: data.start_time,
+          status: "holding",
+        },
+      });
 
-    io.to(`field-${data.field_id}`).emit(
-      "slot-released",
-      {
+      io.to(`field-${data.field_id}`).emit("slot_update", {
         field_id: data.field_id,
-
-        booking_date:
-            data.booking_date,
-
-        start_time:
-            data.start_time,
-
+        booking_date: data.booking_date,
+        time: data.start_time,
+        status: "available",
         userId: data.userId,
-      }
-    );
+      });
+
+      console.log("⚪ RELEASE SLOT:", data.start_time);
+    } catch (err) {
+      console.error("❌ RELEASE SLOT ERROR:", err);
+    }
   });
 
   // ================= BOOK SLOT =================
-  socket.on("book-slot", (data) => {
-    if (!data?.field_id) return;
+  socket.on("book_slot", async (data) => {
+    try {
+      if (!data?.field_id) return;
 
-    console.log("🔴 BOOK SLOT:", data);
+      await Booking.update(
+        {
+          status: "booked",
+          hold_until: null,
+        },
+        {
+          where: {
+            fieldId: data.field_id,
+            start_time: data.start_time,
+            status: "holding",
+            userId: data.userId,
+          },
+        }
+      );
 
-    io.to(`field-${data.field_id}`).emit(
-      "slot-booked",
-      {
+      io.to(`field-${data.field_id}`).emit("slot_update", {
         field_id: data.field_id,
-
-        booking_date:
-            data.booking_date,
-
-        start_time:
-            data.start_time,
-
+        booking_date: data.booking_date,
+        time: data.start_time,
+        status: "booked",
         userId: data.userId,
-      }
-    );
+      });
+
+      console.log("🔴 BOOKED:", data.start_time);
+    } catch (err) {
+      console.error("❌ BOOK SLOT ERROR:", err);
+    }
   });
 
-  // ================= DISCONNECT =================
   socket.on("disconnect", () => {
-    console.log(
-      "❌ User disconnected:",
-      socket.id
-    );
+    console.log("❌ User disconnected:", socket.id);
   });
 });
 
-// ================= AUTO RELEASE EXPIRED HOLD =================
+// ================= AUTO EXPIRE HOLD (5 MIN) =================
 setInterval(async () => {
   try {
     const now = new Date();
 
-    const expired =
-        await Booking.findAll({
+    const expired = await Booking.findAll({
       where: {
         status: "holding",
-
-        hold_until: {
-          [Op.lt]: now,
-        },
+        hold_until: { [Op.lt]: now },
       },
     });
 
     if (!expired.length) return;
 
-    console.log(
-      `⏰ Expired slots: ${expired.length}`
-    );
-
     for (const b of expired) {
-      io.to(`field-${b.fieldId}`).emit(
-        "slot-released",
-        {
-          field_id: b.fieldId,
+      await Booking.destroy({
+        where: { id: b.id },
+      });
 
-          start_time:
-              b.start_time,
+      io.to(`field-${b.fieldId}`).emit("slot_update", {
+        field_id: b.fieldId,
+        booking_date: b.booking_date,
+        time: b.start_time,
+        status: "available",
+        userId: b.userId,
+      });
 
-          end_time:
-              b.end_time,
-
-          // 🔥 QUAN TRỌNG
-          userId: b.userId,
-        }
-      );
+      console.log("⏰ AUTO RELEASE:", b.start_time);
     }
-
-    await Booking.destroy({
-      where: {
-        status: "holding",
-
-        hold_until: {
-          [Op.lt]: now,
-        },
-      },
-    });
-
-    console.log(
-      "✅ Expired holds cleaned"
-    );
   } catch (err) {
-    console.error(
-      "❌ Auto release error:",
-      err
-    );
+    console.error("❌ AUTO EXPIRE ERROR:", err);
   }
 }, 5000);
 
+// ================= EMIT HELPERS =================
+global.emitBookedSlot = (fieldId, startTime, bookingDate, userId) => {
+  io.to(`field-${fieldId}`).emit("slot_update", {
+    field_id: fieldId,
+    booking_date: bookingDate,
+    time: startTime,
+    status: "booked",
+    userId,
+  });
+};
+
+global.emitHoldingSlot = (fieldId, startTime, bookingDate, userId) => {
+  io.to(`field-${fieldId}`).emit("slot_update", {
+    field_id: fieldId,
+    booking_date: bookingDate,
+    time: startTime,
+    status: "holding",
+    userId,
+  });
+};
+
+global.emitAvailableSlot = (fieldId, startTime, bookingDate, userId) => {
+  io.to(`field-${fieldId}`).emit("slot_update", {
+    field_id: fieldId,
+    booking_date: bookingDate,
+    time: startTime,
+    status: "available",
+    userId,
+  });
+};
+
 // ================= START SERVER =================
-const PORT =
-    process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   try {
     await sequelize.authenticate();
+    console.log("✅ Database connected");
 
-    console.log(
-      "✅ Database connected"
-    );
-
-    await sequelize.sync({
-      alter: true,
-    });
-
+    await sequelize.sync({ alter: true });
     console.log("🔥 DB synced");
 
     server.listen(PORT, () => {
-      console.log(
-        `🚀 Server running on port ${PORT}`
-      );
+      console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (err) {
-    console.error(
-      "❌ Server start error:",
-      err
-    );
-
+    console.error("❌ Server start error:", err);
     process.exit(1);
   }
 }

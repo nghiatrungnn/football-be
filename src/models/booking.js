@@ -23,7 +23,7 @@ const Booking = sequelize.define(
       allowNull: false,
     },
 
-    // ================= BOOKING DATE =================
+    // ================= DATE =================
     booking_date: {
       type: DataTypes.DATEONLY,
       allowNull: true,
@@ -40,8 +40,7 @@ const Booking = sequelize.define(
       allowNull: false,
     },
 
-    // ================= CUSTOMER INFO =================
-    // allowNull true để HOLD slot không bị lỗi
+    // ================= CUSTOMER =================
     name: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -87,10 +86,23 @@ const Booking = sequelize.define(
   },
   {
     tableName: "bookings",
+
     timestamps: true,
 
-    // tránh sequelize tự đổi tên bảng
     freezeTableName: true,
+
+    // ================= UNIQUE SLOT =================
+    indexes: [
+      {
+        unique: true,
+
+        fields: [
+          "fieldId",
+          "booking_date",
+          "start_time",
+        ],
+      },
+    ],
   }
 );
 

@@ -458,3 +458,103 @@ exports.forgotPassword =
       });
     }
   };
+  // ================= UPDATE USER (ADMIN) =================
+exports.updateUser = async (
+  req,
+  res
+) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      name,
+      email,
+      role,
+    } = req.body;
+
+    // FIND USER
+    const user =
+      await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        message:
+          "User not found",
+      });
+    }
+
+    // UPDATE DATA
+    if (name)
+      user.name =
+        name.trim();
+
+    if (email)
+      user.email =
+        email
+          .trim()
+          .toLowerCase();
+
+    if (role)
+      user.role = role;
+
+    await user.save();
+
+    return res.json({
+      message:
+        "Update user success",
+
+      user: formatUser(user),
+    });
+  } catch (err) {
+    console.error(
+      "Update user error:",
+      err
+    );
+
+    return res.status(500).json({
+      message:
+        "Update user failed",
+      error: err.message,
+    });
+  }
+};
+
+// ================= DELETE USER (ADMIN) =================
+exports.deleteUser = async (
+  req,
+  res
+) => {
+  try {
+    const { id } = req.params;
+
+    // FIND USER
+    const user =
+      await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        message:
+          "User not found",
+      });
+    }
+
+    // DELETE USER
+    await user.destroy();
+
+    return res.json({
+      message:
+        "Delete user success",
+    });
+  } catch (err) {
+    console.error(
+      "Delete user error:",
+      err
+    );
+
+    return res.status(500).json({
+      message:
+        "Delete user failed",
+      error: err.message,
+    });
+  }
+};

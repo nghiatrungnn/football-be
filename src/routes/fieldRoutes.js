@@ -19,9 +19,9 @@ router.get("/", ctrl.getAll);
 router.get("/:id", ctrl.getById);
 
 // ================= UPDATE =================
-router.put("/:id", auth, isAdmin, ctrl.update);
+router.put("/:id", ctrl.update);
 
 // ================= DELETE =================
-router.delete("/:id", auth, isAdmin, ctrl.delete);
+router.delete("/:id", ctrl.delete);
 
 module.exports = router;

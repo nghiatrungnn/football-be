@@ -10,11 +10,46 @@ const { Op } = require("sequelize");
 // ================= GET IO =================
 const getIO = (req) => req.app.get("io");
 
+// ================= FORMAT TIME VN =================
+const formatVNTime = (date) => {
+  if (!date) return null;
+
+  return new Date(date).toLocaleTimeString(
+    "vi-VN",
+    {
+      timeZone:
+        "Asia/Ho_Chi_Minh",
+
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
+};
+
 // ================= FORMAT DATE =================
 const formatDateOnly = (date) => {
   return new Date(date)
     .toISOString()
     .split("T")[0];
+};
+
+// ================= FORMAT BOOKING RESPONSE =================
+const formatBookingResponse = (
+  booking
+) => {
+  return {
+    ...booking.toJSON(),
+
+    start_time:
+      formatVNTime(
+        booking.start_time
+      ),
+
+    end_time:
+      formatVNTime(
+        booking.end_time
+      ),
+  };
 };
 
 // ================= EMIT REALTIME =================
@@ -291,7 +326,10 @@ const holdSlot = async (
     return res.json({
       success: true,
 
-      booking,
+      booking:
+        formatBookingResponse(
+          booking
+        ),
 
       hold_until: holdUntil,
     });
@@ -475,7 +513,6 @@ const createBooking = async (
       });
     }
 
-    // ================= UPDATE BOOKING =================
     booking.status = "booked";
 
     booking.hold_until = null;
@@ -489,7 +526,6 @@ const createBooking = async (
 
     await transaction.commit();
 
-    // ================= REALTIME =================
     emitSlotUpdate({
       io,
       fieldId: field_id,
@@ -505,7 +541,11 @@ const createBooking = async (
       success: true,
       message:
         "Booking created successfully",
-      booking,
+
+      booking:
+        formatBookingResponse(
+          booking
+        ),
     });
   } catch (err) {
     try {
@@ -514,6 +554,248 @@ const createBooking = async (
 
     console.error(
       "❌ createBooking error:",
+      err
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= UPDATE BOOKING =================
+const updateBooking = async (
+  req,
+  res
+) => {
+  const transaction =
+    await sequelize.transaction();
+
+  try {
+    const io = getIO(req);
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id,
+        {
+          transaction,
+          lock:
+            transaction.LOCK
+              .UPDATE,
+        }
+      );
+
+    if (!booking) {
+      await transaction.rollback();
+
+      return res.status(404).json({
+        success: false,
+        message:
+          "Booking not found",
+      });
+    }
+
+    const {
+      booking_date,
+      start_time,
+    } = req.body;
+
+    if (
+      !booking_date ||
+      !start_time
+    ) {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields",
+      });
+    }
+
+    const fixedTime =
+      start_time
+        .toString()
+        .padStart(8, "0");
+
+    const newStart =
+      new Date(
+        `${booking_date}T${fixedTime}`
+      );
+
+    const newEnd =
+      new Date(
+        newStart.getTime() +
+          60 * 60 * 1000
+      );
+
+    // ================= CHECK CONFLICT =================
+    const conflict =
+      await Booking.findOne({
+        where: {
+          id: {
+            [Op.ne]:
+              booking.id,
+          },
+
+          fieldId:
+            booking.fieldId,
+
+          status: {
+            [Op.in]: [
+              "holding",
+              "booked",
+            ],
+          },
+
+          [Op.and]: [
+            {
+              start_time: {
+                [Op.lt]:
+                  newEnd,
+              },
+            },
+            {
+              end_time: {
+                [Op.gt]:
+                  newStart,
+              },
+            },
+          ],
+        },
+
+        transaction,
+      });
+
+    if (conflict) {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "New slot already taken",
+      });
+    }
+
+    emitSlotUpdate({
+      io,
+      fieldId:
+        booking.fieldId,
+      bookingDate:
+        booking.booking_date,
+      startTime:
+        booking.start_time,
+      status: "available",
+      userId:
+        booking.userId,
+    });
+
+    booking.booking_date =
+      booking_date;
+
+    booking.start_time =
+      newStart;
+
+    booking.end_time =
+      newEnd;
+
+    await booking.save({
+      transaction,
+    });
+
+    await transaction.commit();
+
+    emitSlotUpdate({
+      io,
+      fieldId:
+        booking.fieldId,
+      bookingDate:
+        booking.booking_date,
+      startTime:
+        booking.start_time,
+      status:
+        booking.status,
+      userId:
+        booking.userId,
+    });
+
+    return res.json({
+      success: true,
+      message:
+        "Booking updated successfully",
+
+      booking:
+        formatBookingResponse(
+          booking
+        ),
+    });
+  } catch (err) {
+    try {
+      await transaction.rollback();
+    } catch (_) {}
+
+    console.error(
+      "❌ updateBooking error:",
+      err
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= DELETE BOOKING =================
+const deleteBooking = async (
+  req,
+  res
+) => {
+  try {
+    const io = getIO(req);
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id
+      );
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Booking not found",
+      });
+    }
+
+    emitSlotUpdate({
+      io,
+      fieldId:
+        booking.fieldId,
+      bookingDate:
+        booking.booking_date,
+      startTime:
+        booking.start_time,
+      status: "available",
+      userId:
+        booking.userId,
+    });
+
+    booking.status =
+      "cancelled";
+
+    booking.hold_until =
+      null;
+
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message:
+        "Booking cancelled successfully",
+    });
+  } catch (err) {
+    console.error(
+      "❌ deleteBooking error:",
       err
     );
 
@@ -539,53 +821,21 @@ const getByDate = async (
       booking_date,
     } = req.query;
 
-    if (
-      !field_id ||
-      !booking_date
-    ) {
-      const bookings =
-        await Booking.findAll({
-          include: [
-            {
-              model: User,
-              attributes: [
-                "id",
-                "name",
-              ],
-            },
-            {
-              model: Field,
-            },
-          ],
+    const whereClause = {};
 
-          order: [
-            [
-              "start_time",
-              "ASC",
-            ],
-          ],
-        });
+    if (field_id) {
+      whereClause.fieldId =
+        field_id;
+    }
 
-      return res.json({
-        success: true,
-        bookings,
-      });
+    if (booking_date) {
+      whereClause.booking_date =
+        booking_date;
     }
 
     const bookings =
       await Booking.findAll({
-        where: {
-          fieldId: field_id,
-
-          booking_date,
-
-          status: {
-            [Op.in]: [
-              "holding",
-              "booked",
-            ],
-          },
-        },
+        where: whereClause,
 
         include: [
           {
@@ -594,6 +844,9 @@ const getByDate = async (
               "id",
               "name",
             ],
+          },
+          {
+            model: Field,
           },
         ],
 
@@ -605,34 +858,13 @@ const getByDate = async (
         ],
       });
 
-    const result =
-      bookings.map((b) => ({
-        id: b.id,
-
-        fieldId: b.fieldId,
-
-        booking_date:
-          b.booking_date,
-
-        userId: b.userId,
-
-        start_time:
-          b.start_time,
-
-        end_time:
-          b.end_time,
-
-        status: b.status,
-
-        hold_until:
-          b.hold_until,
-
-        user: b.user,
-      }));
-
     return res.json({
       success: true,
-      bookings: result,
+
+      bookings:
+        bookings.map((b) =>
+          formatBookingResponse(b)
+        ),
     });
   } catch (err) {
     console.error(
@@ -674,7 +906,11 @@ const getMyBookings =
 
       return res.json({
         success: true,
-        bookings,
+
+        bookings:
+          bookings.map((b) =>
+            formatBookingResponse(b)
+          ),
       });
     } catch (err) {
       console.error(
@@ -719,7 +955,11 @@ const getAllBookings =
 
       return res.json({
         success: true,
-        bookings,
+
+        bookings:
+          bookings.map((b) =>
+            formatBookingResponse(b)
+          ),
       });
     } catch (err) {
       console.error(
@@ -799,6 +1039,8 @@ module.exports = {
   holdSlot,
   cancelHold,
   createBooking,
+  updateBooking,
+  deleteBooking,
   getByDate,
   getMyBookings,
   getAllBookings,

@@ -7,13 +7,17 @@ const ctrl = require("../controllers/bookingController");
 
 // ================= SAFETY CHECK =================
 if (typeof auth !== "function") {
-  throw new Error("❌ auth middleware is not a function");
+  throw new Error(
+    "❌ auth middleware is not a function"
+  );
 }
 
 const requiredControllers = [
   "holdSlot",
   "cancelHold",
   "createBooking",
+  "updateBooking",
+  "deleteBooking",
   "getByDate",
   "getMyBookings",
   "getAllBookings",
@@ -22,31 +26,73 @@ const requiredControllers = [
 
 requiredControllers.forEach((fn) => {
   if (typeof ctrl[fn] !== "function") {
-    throw new Error(`❌ Controller missing or invalid: ${fn}`);
+    throw new Error(
+      `❌ Controller missing or invalid: ${fn}`
+    );
   }
 });
 
 // ================= ROUTES =================
 
-// hold slot
-router.post("/hold", auth, ctrl.holdSlot);
+// ================= HOLD SLOT =================
+router.post(
+  "/hold",
+  auth,
+  ctrl.holdSlot
+);
 
-// cancel hold
-router.post("/cancel-hold", auth, ctrl.cancelHold);
+// ================= CANCEL HOLD =================
+router.post(
+  "/cancel-hold",
+  auth,
+  ctrl.cancelHold
+);
 
-// create booking
-router.post("/", auth, ctrl.createBooking);
+// ================= CREATE BOOKING =================
+router.post(
+  "/",
+  auth,
+  ctrl.createBooking
+);
 
-// get bookings by date
-router.get("/", ctrl.getByDate);
+// ================= UPDATE BOOKING =================
+router.put(
+  "/:id",
+  auth,
+  ctrl.updateBooking
+);
 
-// get my bookings
-router.get("/my", auth, ctrl.getMyBookings);
+// ================= DELETE BOOKING =================
+router.delete(
+  "/:id",
+  auth,
+  ctrl.deleteBooking
+);
 
-// admin - get all bookings
-router.get("/all", ctrl.getAllBookings);
+// ================= GET BOOKINGS BY DATE =================
+router.get(
+  "/",
+  ctrl.getByDate
+);
 
-// cancel booking
-router.put("/:id/cancel", auth, ctrl.cancel);
+// ================= GET MY BOOKINGS =================
+router.get(
+  "/my",
+  auth,
+  ctrl.getMyBookings
+);
+
+// ================= GET ALL BOOKINGS =================
+router.get(
+  "/all",
+  ctrl.getAllBookings
+);
+
+// ================= CANCEL BOOKING =================
+router.put(
+  "/:id/cancel",
+  auth,
+  ctrl.cancel
+);
 
 module.exports = router;

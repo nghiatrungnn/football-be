@@ -26,7 +26,7 @@ const Booking = sequelize.define(
     // ================= DATE =================
     booking_date: {
       type: DataTypes.DATEONLY,
-      allowNull: true,
+      allowNull: false,
     },
 
     // ================= TIME =================
@@ -59,6 +59,45 @@ const Booking = sequelize.define(
       defaultValue: null,
     },
 
+    // ================= PAYMENT METHOD =================
+    payment_method: {
+      type: DataTypes.ENUM(
+        "cash",
+        "banking"
+      ),
+
+      allowNull: false,
+
+      defaultValue: "cash",
+    },
+
+    // ================= PAYMENT STATUS =================
+    payment_status: {
+      type: DataTypes.ENUM(
+        "pending",
+        "paid",
+        "failed",
+      ),
+
+      allowNull: false,
+
+      defaultValue: "pending",
+    },
+
+    // ================= TRANSACTION CODE =================
+    transaction_code: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+
+    // ================= PAYMENT NOTE =================
+    payment_note: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+    },
+
     // ================= STATUS =================
     status: {
       type: DataTypes.ENUM(
@@ -66,7 +105,9 @@ const Booking = sequelize.define(
         "booked",
         "cancelled"
       ),
+
       allowNull: false,
+
       defaultValue: "holding",
     },
 
@@ -83,7 +124,20 @@ const Booking = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+
+    // ================= CREATED AT =================
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    // ================= UPDATED AT =================
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
+
   {
     tableName: "bookings",
 

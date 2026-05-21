@@ -26,9 +26,18 @@ const Field = sequelize.define("field", {
     allowNull: false,
   },
 
-  // ⚠️ Lưu JSON array ảnh
+  // ✅ Ảnh đại diện từ link internet
+  image: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    validate: {
+      isUrl: true,
+    },
+  },
+
+  // ✅ Danh sách nhiều ảnh
   images: {
-    type: DataTypes.JSON, // ["url1", "url2"]
+    type: DataTypes.JSON,
     defaultValue: [],
   },
 });

@@ -2,8 +2,12 @@ const router = require("express").Router();
 
 const auth = require("../middlewares/authMiddleware");
 
-// ================= CONTROLLER =================
-const ctrl = require("../controllers/bookingController");
+// ================= CONTROLLERS =================
+const ctrl =
+  require("../controllers/bookingController");
+
+const paymentCtrl =
+  require("../controllers/paymentController");
 
 // ================= SAFETY CHECK =================
 if (typeof auth !== "function") {
@@ -12,6 +16,7 @@ if (typeof auth !== "function") {
   );
 }
 
+// ================= CHECK BOOKING CONTROLLERS =================
 const requiredControllers = [
   "holdSlot",
   "cancelHold",
@@ -32,7 +37,26 @@ requiredControllers.forEach((fn) => {
   }
 });
 
-// ================= ROUTES =================
+// ================= CHECK PAYMENT CONTROLLERS =================
+const requiredPaymentControllers = [
+  "createPayment",
+  "paymentWebhook",
+];
+
+requiredPaymentControllers.forEach((fn) => {
+  if (
+    typeof paymentCtrl[fn] !==
+    "function"
+  ) {
+    throw new Error(
+      `❌ Payment controller missing: ${fn}`
+    );
+  }
+});
+
+// =====================================================
+// BOOKING ROUTES
+// =====================================================
 
 // ================= HOLD SLOT =================
 router.post(
@@ -93,6 +117,23 @@ router.put(
   "/:id/cancel",
   auth,
   ctrl.cancel
+);
+
+// =====================================================
+// PAYOS PAYMENT ROUTES
+// =====================================================
+
+// ================= CREATE PAYMENT QR =================
+router.post(
+  "/payment/create",
+  auth,
+  paymentCtrl.createPayment
+);
+
+// ================= PAYOS WEBHOOK =================
+router.post(
+  "/payment/webhook",
+  paymentCtrl.paymentWebhook
 );
 
 module.exports = router;

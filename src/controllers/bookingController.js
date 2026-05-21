@@ -17,9 +17,7 @@ const formatVNTime = (date) => {
   return new Date(date).toLocaleTimeString(
     "vi-VN",
     {
-      timeZone:
-        "Asia/Ho_Chi_Minh",
-
+      timeZone: "Asia/Ho_Chi_Minh",
       hour: "2-digit",
       minute: "2-digit",
     }
@@ -39,6 +37,11 @@ const formatBookingResponse = (
 ) => {
   return {
     ...booking.toJSON(),
+
+    booking_date:
+      formatDateOnly(
+        booking.booking_date
+      ),
 
     start_time:
       formatVNTime(
@@ -184,19 +187,6 @@ const holdSlot = async (
           60 * 60 * 1000
       );
 
-    if (
-      isNaN(
-        startDateTime.getTime()
-      )
-    ) {
-      await transaction.rollback();
-
-      return res.status(400).json({
-        success: false,
-        message: "Invalid time",
-      });
-    }
-
     // ================= CHECK CONFLICT =================
     const conflict =
       await Booking.findOne({
@@ -233,7 +223,6 @@ const holdSlot = async (
             .UPDATE,
       });
 
-    // ================= SLOT TAKEN =================
     if (conflict) {
       await transaction.rollback();
 
@@ -244,36 +233,17 @@ const holdSlot = async (
       });
     }
 
-    // ================= REMOVE OLD HOLDS =================
-    const oldHolds =
-      await Booking.findAll({
-        where: {
-          userId: req.user.id,
-          status: "holding",
-        },
+    // ================= REMOVE OLD HOLD =================
+    await Booking.destroy({
+      where: {
+        userId: req.user.id,
+        status: "holding",
+      },
 
-        transaction,
-      });
+      transaction,
+    });
 
-    for (const old of oldHolds) {
-      emitSlotUpdate({
-        io,
-        fieldId: old.fieldId,
-        bookingDate:
-          old.booking_date,
-        startTime:
-          old.start_time,
-        status:
-          "available",
-        userId: old.userId,
-      });
-
-      await old.destroy({
-        transaction,
-      });
-    }
-
-    // ================= HOLD 5 MINUTES =================
+    // ================= HOLD 5 MIN =================
     const holdUntil =
       new Date(
         Date.now() +
@@ -302,7 +272,14 @@ const holdSlot = async (
             holdUntil,
 
           total_price: 0,
+
+          payment_method:
+            "cash",
+
+          payment_status:
+            "pending",
         },
+
         {
           transaction,
         }
@@ -310,7 +287,6 @@ const holdSlot = async (
 
     await transaction.commit();
 
-    // ================= REALTIME =================
     emitSlotUpdate({
       io,
       fieldId: field_id,
@@ -364,17 +340,6 @@ const cancelHold = async (
       start_time,
     } = req.body;
 
-    if (
-      !field_id ||
-      !booking_date ||
-      !start_time
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing fields",
-      });
-    }
-
     const fixedTime =
       start_time
         .toString()
@@ -389,12 +354,10 @@ const cancelHold = async (
       await Booking.findOne({
         where: {
           userId: req.user.id,
-
           fieldId: field_id,
-
+          booking_date,
           start_time:
             startDateTime,
-
           status: "holding",
         },
       });
@@ -403,7 +366,7 @@ const cancelHold = async (
       return res.status(404).json({
         success: false,
         message:
-          "Hold not found",
+          "Holding slot not found",
       });
     }
 
@@ -415,7 +378,7 @@ const cancelHold = async (
       bookingDate:
         booking_date,
       startTime:
-        booking.start_time,
+        startDateTime,
       status: "available",
       userId: req.user.id,
     });
@@ -423,7 +386,7 @@ const cancelHold = async (
     return res.json({
       success: true,
       message:
-        "Hold cancelled",
+        "Hold cancelled successfully",
     });
   } catch (err) {
     console.error(
@@ -453,6 +416,14 @@ const createBooking = async (
       field_id,
       booking_date,
       start_time,
+
+      name,
+      phone,
+      email,
+
+      payment_method,
+      transaction_code,
+      payment_note,
     } = req.body;
 
     if (
@@ -513,12 +484,35 @@ const createBooking = async (
       });
     }
 
-    booking.status = "booked";
+    booking.status =
+      "booked";
 
-    booking.hold_until = null;
+    booking.hold_until =
+      null;
 
-    booking.booking_date =
-      booking_date;
+    booking.name = name;
+
+    booking.phone = phone;
+
+    booking.email = email;
+
+    booking.payment_method =
+      payment_method ||
+      "cash";
+
+    booking.payment_status =
+      payment_method ===
+      "banking"
+        ? "paid"
+        : "pending";
+
+    booking.transaction_code =
+      transaction_code ||
+      null;
+
+    booking.payment_note =
+      payment_note ||
+      null;
 
     await booking.save({
       transaction,
@@ -539,6 +533,7 @@ const createBooking = async (
 
     return res.json({
       success: true,
+
       message:
         "Booking created successfully",
 
@@ -569,26 +564,13 @@ const updateBooking = async (
   req,
   res
 ) => {
-  const transaction =
-    await sequelize.transaction();
-
   try {
-    const io = getIO(req);
-
     const booking =
       await Booking.findByPk(
-        req.params.id,
-        {
-          transaction,
-          lock:
-            transaction.LOCK
-              .UPDATE,
-        }
+        req.params.id
       );
 
     if (!booking) {
-      await transaction.rollback();
-
       return res.status(404).json({
         success: false,
         message:
@@ -596,128 +578,9 @@ const updateBooking = async (
       });
     }
 
-    const {
-      booking_date,
-      start_time,
-    } = req.body;
-
-    if (
-      !booking_date ||
-      !start_time
-    ) {
-      await transaction.rollback();
-
-      return res.status(400).json({
-        success: false,
-        message: "Missing fields",
-      });
-    }
-
-    const fixedTime =
-      start_time
-        .toString()
-        .padStart(8, "0");
-
-    const newStart =
-      new Date(
-        `${booking_date}T${fixedTime}`
-      );
-
-    const newEnd =
-      new Date(
-        newStart.getTime() +
-          60 * 60 * 1000
-      );
-
-    // ================= CHECK CONFLICT =================
-    const conflict =
-      await Booking.findOne({
-        where: {
-          id: {
-            [Op.ne]:
-              booking.id,
-          },
-
-          fieldId:
-            booking.fieldId,
-
-          status: {
-            [Op.in]: [
-              "holding",
-              "booked",
-            ],
-          },
-
-          [Op.and]: [
-            {
-              start_time: {
-                [Op.lt]:
-                  newEnd,
-              },
-            },
-            {
-              end_time: {
-                [Op.gt]:
-                  newStart,
-              },
-            },
-          ],
-        },
-
-        transaction,
-      });
-
-    if (conflict) {
-      await transaction.rollback();
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "New slot already taken",
-      });
-    }
-
-    emitSlotUpdate({
-      io,
-      fieldId:
-        booking.fieldId,
-      bookingDate:
-        booking.booking_date,
-      startTime:
-        booking.start_time,
-      status: "available",
-      userId:
-        booking.userId,
-    });
-
-    booking.booking_date =
-      booking_date;
-
-    booking.start_time =
-      newStart;
-
-    booking.end_time =
-      newEnd;
-
-    await booking.save({
-      transaction,
-    });
-
-    await transaction.commit();
-
-    emitSlotUpdate({
-      io,
-      fieldId:
-        booking.fieldId,
-      bookingDate:
-        booking.booking_date,
-      startTime:
-        booking.start_time,
-      status:
-        booking.status,
-      userId:
-        booking.userId,
-    });
+    await booking.update(
+      req.body
+    );
 
     return res.json({
       success: true,
@@ -730,10 +593,6 @@ const updateBooking = async (
         ),
     });
   } catch (err) {
-    try {
-      await transaction.rollback();
-    } catch (_) {}
-
     console.error(
       "❌ updateBooking error:",
       err
@@ -752,8 +611,6 @@ const deleteBooking = async (
   res
 ) => {
   try {
-    const io = getIO(req);
-
     const booking =
       await Booking.findByPk(
         req.params.id
@@ -767,24 +624,8 @@ const deleteBooking = async (
       });
     }
 
-    emitSlotUpdate({
-      io,
-      fieldId:
-        booking.fieldId,
-      bookingDate:
-        booking.booking_date,
-      startTime:
-        booking.start_time,
-      status: "available",
-      userId:
-        booking.userId,
-    });
-
     booking.status =
       "cancelled";
-
-    booking.hold_until =
-      null;
 
     await booking.save();
 
@@ -812,10 +653,6 @@ const getByDate = async (
   res
 ) => {
   try {
-    await cleanExpiredHold(
-      getIO(req)
-    );
-
     const {
       field_id,
       booking_date,
@@ -858,14 +695,14 @@ const getByDate = async (
         ],
       });
 
-    return res.json({
-      success: true,
+      return res.json({
+        success: true,
 
-      bookings:
-        bookings.map((b) =>
-          formatBookingResponse(b)
-        ),
-    });
+        bookings:
+          bookings.map((b) =>
+            formatBookingResponse(b)
+          ),
+      });
   } catch (err) {
     console.error(
       "❌ getByDate error:",
@@ -974,14 +811,12 @@ const getAllBookings =
     }
   };
 
-// ================= CANCEL BOOKING =================
+// ================= CANCEL =================
 const cancel = async (
   req,
   res
 ) => {
   try {
-    const io = getIO(req);
-
     const booking =
       await Booking.findByPk(
         req.params.id
@@ -1002,19 +837,6 @@ const cancel = async (
       null;
 
     await booking.save();
-
-    emitSlotUpdate({
-      io,
-      fieldId:
-        booking.fieldId,
-      bookingDate:
-        booking.booking_date,
-      startTime:
-        booking.start_time,
-      status: "available",
-      userId:
-        booking.userId,
-    });
 
     return res.json({
       success: true,

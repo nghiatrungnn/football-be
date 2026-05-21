@@ -48,9 +48,17 @@ app.use((req, res, next) => {
 const bookingRoutes =
   require("./routes/bookingRoutes");
 
+const paymentRoutes =
+  require("./routes/paymentRoutes");
+
 app.use(
   "/api/bookings",
   bookingRoutes
+);
+
+app.use(
+  "/api/payments",
+  paymentRoutes
 );
 
 // ================= HOLD CONFIG =================

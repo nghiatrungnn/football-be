@@ -2,7 +2,14 @@ const { user: User } = require("../models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
-console.log("LOGIN SECRET:", process.env.JWT_SECRET);
+
+// ================= CHECK JWT SECRET =================
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET is missing in .env"
+  );
+}
+
 // ================= GENERATE TOKEN =================
 const generateToken = (user) => {
   return jwt.sign(
@@ -27,13 +34,24 @@ const formatUser = (user) => ({
   avatar: user.avatar || "",
 });
 
+// ================= VALIDATE EMAIL =================
+const validateEmail = (email) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    email
+  );
+};
+
 // ================= GET ALL USERS =================
-exports.getAllUsers = async (req, res) => {
+exports.getAllUsers = async (
+  req,
+  res
+) => {
   try {
     const users = await User.findAll({
       attributes: {
         exclude: ["password"],
       },
+      order: [["id", "DESC"]],
     });
 
     return res.json(users);
@@ -73,13 +91,18 @@ exports.register = async (
       });
     }
 
+    name = name.trim();
+
     email = email
       .trim()
       .toLowerCase();
 
-    name = name.trim();
+    if (!validateEmail(email)) {
+      return res.status(400).json({
+        message: "Invalid email",
+      });
+    }
 
-    // PASSWORD LENGTH
     if (password.length < 6) {
       return res.status(400).json({
         message:
@@ -116,12 +139,10 @@ exports.register = async (
         role: "user",
       });
 
-    return res.json({
+    return res.status(201).json({
       message: "Register success",
-
       token:
         generateToken(user),
-
       user: formatUser(user),
     });
   } catch (error) {
@@ -194,10 +215,8 @@ exports.login = async (
 
     return res.json({
       message: "Login success",
-
       token:
         generateToken(user),
-
       user: formatUser(user),
     });
   } catch (error) {
@@ -222,12 +241,6 @@ exports.loginGoogle = async (
     const { access_token } =
       req.body;
 
-    console.log(
-      "GOOGLE BODY:",
-      req.body
-    );
-
-    // CHECK TOKEN
     if (!access_token) {
       return res.status(400).json({
         message:
@@ -249,7 +262,6 @@ exports.loginGoogle = async (
     const data =
       googleRes.data;
 
-    // CHECK EMAIL
     if (!data.email) {
       return res.status(400).json({
         message:
@@ -345,7 +357,6 @@ exports.getMe = async (
         }
       );
 
-    // USER NOT FOUND
     if (!user) {
       return res.status(404).json({
         message:
@@ -378,7 +389,6 @@ exports.updateName = async (
     const { name } =
       req.body;
 
-    // VALIDATE
     if (!name) {
       return res.status(400).json({
         message:
@@ -386,7 +396,6 @@ exports.updateName = async (
       });
     }
 
-    // FIND USER
     const user =
       await User.findByPk(
         req.user.id
@@ -399,8 +408,8 @@ exports.updateName = async (
       });
     }
 
-    // UPDATE NAME
-    user.name = name.trim();
+    user.name =
+      name.trim();
 
     await user.save();
 
@@ -458,7 +467,8 @@ exports.forgotPassword =
       });
     }
   };
-  // ================= UPDATE USER (ADMIN) =================
+
+// ================= UPDATE USER (ADMIN) =================
 exports.updateUser = async (
   req,
   res
@@ -472,7 +482,6 @@ exports.updateUser = async (
       role,
     } = req.body;
 
-    // FIND USER
     const user =
       await User.findByPk(id);
 
@@ -483,19 +492,42 @@ exports.updateUser = async (
       });
     }
 
-    // UPDATE DATA
-    if (name)
-      user.name =
-        name.trim();
+    // CHECK EMAIL EXIST
+    if (email) {
+      const exist =
+        await User.findOne({
+          where: {
+            email:
+              email
+                .trim()
+                .toLowerCase(),
+          },
+        });
 
-    if (email)
+      if (
+        exist &&
+        exist.id !== user.id
+      ) {
+        return res.status(400).json({
+          message:
+            "Email already exists",
+        });
+      }
+
       user.email =
         email
           .trim()
           .toLowerCase();
+    }
 
-    if (role)
+    if (name) {
+      user.name =
+        name.trim();
+    }
+
+    if (role) {
       user.role = role;
+    }
 
     await user.save();
 
@@ -527,7 +559,17 @@ exports.deleteUser = async (
   try {
     const { id } = req.params;
 
-    // FIND USER
+    // BLOCK SELF DELETE
+    if (
+      Number(id) ===
+      req.user.id
+    ) {
+      return res.status(400).json({
+        message:
+          "Cannot delete yourself",
+      });
+    }
+
     const user =
       await User.findByPk(id);
 
@@ -538,7 +580,6 @@ exports.deleteUser = async (
       });
     }
 
-    // DELETE USER
     await user.destroy();
 
     return res.json({

@@ -10,21 +10,18 @@ const authMiddleware = require("../middlewares/authMiddleware");
 // GET ALL USERS
 router.get(
   "/users",
-  authMiddleware,
   authController.getAllUsers
 );
 
 // UPDATE USER
 router.put(
   "/users/:id",
-  authMiddleware,
   authController.updateUser
 );
 
 // DELETE USER
 router.delete(
   "/users/:id",
-  authMiddleware,
   authController.deleteUser
 );
 
@@ -59,14 +56,12 @@ router.post(
 // GET CURRENT USER
 router.get(
   "/me",
-  authMiddleware,
   authController.getMe
 );
 
 // UPDATE NAME
 router.put(
   "/update-name",
-  authMiddleware,
   authController.updateName
 );
 

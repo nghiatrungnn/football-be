@@ -1,41 +1,125 @@
 const jwt = require("jsonwebtoken");
 
-/**
- * AUTH MIDDLEWARE (JWT)
- * Dùng cho tất cả route cần đăng nhập
- */
-module.exports = (req, res, next) => {
-  try {
-    // ================= GET TOKEN =================
-    const authHeader = req.headers.authorization;
+// ================= CHECK JWT SECRET =================
+if (!process.env.JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET is missing in .env"
+  );
+}
 
+/**
+ * ================= AUTH MIDDLEWARE =================
+ * JWT Authentication Middleware
+ *
+ * Header format:
+ * Authorization: Bearer TOKEN
+ */
+module.exports = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    // ================= GET AUTH HEADER =================
+    const authHeader =
+      req.headers.authorization;
+
+    // NO HEADER
     if (!authHeader) {
       return res.status(401).json({
-        message: "No token provided",
+        success: false,
+        message:
+          "No token provided",
       });
     }
 
-    // Format: Bearer <token>
-    const token = authHeader.split(" ")[1];
+    // ================= CHECK FORMAT =================
+    const parts =
+      authHeader.split(" ");
+
+    // MUST: Bearer TOKEN
+    if (
+      parts.length !== 2 ||
+      parts[0] !== "Bearer"
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Invalid token format. Use: Bearer TOKEN",
+      });
+    }
+
+    // ================= GET TOKEN =================
+    const token = parts[1];
 
     if (!token) {
       return res.status(401).json({
-        message: "Invalid token format (must be Bearer <token>)",
+        success: false,
+        message:
+          "Token is missing",
       });
     }
 
     // ================= VERIFY TOKEN =================
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    // TOKEN INVALID
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Invalid token",
+      });
+    }
 
     // ================= ATTACH USER =================
-    req.user = decoded;
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    };
 
+    // ================= NEXT =================
     next();
   } catch (err) {
-    console.log("JWT AUTH ERROR:", err.message);
+    console.error(
+      "JWT AUTH ERROR:",
+      err.message
+    );
 
-    return res.status(401).json({
-      message: "Unauthorized - invalid or expired token",
+    // TOKEN EXPIRED
+    if (
+      err.name ===
+      "TokenExpiredError"
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Token expired",
+      });
+    }
+
+    // INVALID TOKEN
+    if (
+      err.name ===
+      "JsonWebTokenError"
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Invalid token",
+      });
+    }
+
+    // SERVER ERROR
+    return res.status(500).json({
+      success: false,
+      message:
+        "Authentication failed",
+      error: err.message,
     });
   }
 };

@@ -1,8 +1,16 @@
-const payos = require("../services/payosService");
+const axios =
+  require("axios");
+
+const crypto =
+  require("crypto");
 
 const {
   booking: Booking,
 } = require("../models");
+
+// =====================================================
+// CREATE PAYMENT
+// =====================================================
 
 const createPayment =
   async (req, res) => {
@@ -11,6 +19,8 @@ const createPayment =
         bookingId,
         amount,
       } = req.body;
+
+      // ================= FIND BOOKING =================
 
       const booking =
         await Booking.findByPk(
@@ -25,16 +35,24 @@ const createPayment =
         });
       }
 
+      // ================= ORDER CODE =================
+
       const orderCode =
         Number(
-          `${Date.now()}`
+          Date.now()
+            .toString()
             .slice(-6)
         );
 
-      const paymentData = {
+      // =====================================================
+      // PAYOS BODY
+      // =====================================================
+
+      const body = {
         orderCode,
 
-        amount,
+        amount:
+          Number(amount),
 
         description:
           `Dat san ${booking.id}`,
@@ -46,42 +64,119 @@ const createPayment =
           "https://google.com",
       };
 
-      const paymentLink =
-        await payos.createPaymentLink(
-          paymentData
+      // =====================================================
+      // SIGNATURE
+      // =====================================================
+
+      const signatureData =
+        `amount=${body.amount}&cancelUrl=${body.cancelUrl}&description=${body.description}&orderCode=${body.orderCode}&returnUrl=${body.returnUrl}`;
+
+      const signature =
+        crypto
+          .createHmac(
+            "sha256",
+            process.env
+              .PAYOS_CHECKSUM_KEY
+          )
+          .update(
+            signatureData
+          )
+          .digest("hex");
+
+      // =====================================================
+      // API REQUEST
+      // =====================================================
+
+      const response =
+        await axios.post(
+          "https://api-merchant.payos.vn/v2/payment-requests",
+          {
+            ...body,
+            signature,
+          },
+
+          {
+            headers: {
+              "x-client-id":
+                process.env
+                  .PAYOS_CLIENT_ID,
+
+              "x-api-key":
+                process.env
+                  .PAYOS_API_KEY,
+            },
+          }
         );
+
+      console.log(
+        "PAYOS RESPONSE =>",
+        response.data
+      );
+
+      // ================= SAVE TRANSACTION =================
 
       booking.transaction_code =
         orderCode.toString();
 
       await booking.save();
 
+      // =====================================================
+      // RESPONSE
+      // =====================================================
+
       return res.json({
         success: true,
 
         checkoutUrl:
-          paymentLink.checkoutUrl,
+          response.data
+            .data
+            .checkoutUrl,
 
         qrCode:
-          paymentLink.qrCode,
+          response.data
+            .data
+            .qrCode,
       });
     } catch (err) {
-      console.error(err);
+      console.error(
+        "CREATE PAYMENT ERROR =>",
+        err.response?.data ||
+          err.message
+      );
 
       return res.status(500).json({
         success: false,
-        message: err.message,
+
+        message:
+          err.response?.data ||
+          err.message,
       });
     }
   };
-  const paymentWebhook =
+
+// =====================================================
+// WEBHOOK
+// =====================================================
+
+const paymentWebhook =
   async (req, res) => {
     try {
+      console.log(
+        "WEBHOOK =>",
+        req.body
+      );
+
       const data =
         req.body.data;
 
+      if (!data) {
+        return res.send("OK");
+      }
+
       const orderCode =
         data.orderCode;
+
+      // ================= FIND BOOKING =================
 
       const booking =
         await Booking.findOne({
@@ -94,6 +189,8 @@ const createPayment =
       if (!booking) {
         return res.send("OK");
       }
+
+      // ================= UPDATE =================
 
       booking.payment_status =
         "paid";
@@ -110,9 +207,25 @@ const createPayment =
         "✅ PAYMENT SUCCESS"
       );
 
+      // ================= REALTIME =================
+
+      if (
+        global.emitBookedSlot
+      ) {
+        global.emitBookedSlot(
+          booking.fieldId,
+          booking.start_time,
+          booking.booking_date,
+          booking.userId
+        );
+      }
+
       return res.send("OK");
     } catch (err) {
-      console.error(err);
+      console.error(
+        "WEBHOOK ERROR =>",
+        err
+      );
 
       return res.send("OK");
     }

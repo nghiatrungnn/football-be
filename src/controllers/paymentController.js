@@ -15,12 +15,16 @@ const {
 const createPayment =
   async (req, res) => {
     try {
+
       const {
         bookingId,
         amount,
+        platform,
       } = req.body;
 
-      // ================= FIND BOOKING =================
+      // =====================================================
+      // FIND BOOKING
+      // =====================================================
 
       const booking =
         await Booking.findByPk(
@@ -28,6 +32,7 @@ const createPayment =
         );
 
       if (!booking) {
+
         return res.status(404).json({
           success: false,
           message:
@@ -35,7 +40,25 @@ const createPayment =
         });
       }
 
-      // ================= ORDER CODE =================
+      // =====================================================
+      // ALREADY PAID
+      // =====================================================
+
+      if (
+        booking.payment_status ===
+        "paid"
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Booking already paid",
+        });
+      }
+
+      // =====================================================
+      // ORDER CODE
+      // =====================================================
 
       const orderCode =
         Number(
@@ -45,7 +68,36 @@ const createPayment =
         );
 
       // =====================================================
-      // PAYOS BODY
+      // SAVE DB
+      // =====================================================
+
+      booking.transaction_code =
+        orderCode.toString();
+
+      booking.payment_status =
+        "pending";
+
+      booking.status =
+        "holding";
+
+      await booking.save();
+
+      // =====================================================
+      // RETURN URL
+      // =====================================================
+
+      const returnUrl =
+        platform === "web"
+          ? "http://localhost:3000"
+          : "http://localhost:3000/#/home";
+
+      const cancelUrl =
+        platform === "web"
+          ? "http://localhost:3000"
+          : "http://localhost:3000/#/home";
+
+      // =====================================================
+      // BODY
       // =====================================================
 
       const body = {
@@ -57,11 +109,9 @@ const createPayment =
         description:
           `Dat san ${booking.id}`,
 
-        returnUrl:
-          "https://google.com",
+        returnUrl,
 
-        cancelUrl:
-          "https://google.com",
+        cancelUrl,
       };
 
       // =====================================================
@@ -84,7 +134,7 @@ const createPayment =
           .digest("hex");
 
       // =====================================================
-      // API REQUEST
+      // CREATE PAYMENT
       // =====================================================
 
       const response =
@@ -94,7 +144,6 @@ const createPayment =
             ...body,
             signature,
           },
-
           {
             headers: {
               "x-client-id":
@@ -113,15 +162,8 @@ const createPayment =
         response.data
       );
 
-      // ================= SAVE TRANSACTION =================
-
-      booking.transaction_code =
-        orderCode.toString();
-
-      await booking.save();
-
       // =====================================================
-      // RESPONSE
+      // RETURN
       // =====================================================
 
       return res.json({
@@ -137,7 +179,9 @@ const createPayment =
             .data
             .qrCode,
       });
+
     } catch (err) {
+
       console.error(
         "CREATE PAYMENT ERROR =>",
         err.response?.data ||
@@ -161,22 +205,86 @@ const createPayment =
 const paymentWebhook =
   async (req, res) => {
     try {
+
       console.log(
-        "WEBHOOK =>",
-        req.body
+        "WEBHOOK BODY =>",
+        JSON.stringify(
+          req.body,
+          null,
+          2
+        )
       );
 
+      const body =
+        req.body;
+
       const data =
-        req.body.data;
+        body.data;
+
+      // =====================================================
+      // NO DATA
+      // =====================================================
 
       if (!data) {
+
+        console.log(
+          "NO DATA"
+        );
+
         return res.send("OK");
       }
+
+      // =====================================================
+      // LOG
+      // =====================================================
+
+      console.log(
+        "PAYOS CODE =>",
+        body.code
+      );
+
+      console.log(
+        "PAYOS DESC =>",
+        body.desc
+      );
+
+      console.log(
+        "PAYOS STATUS =>",
+        data.status
+      );
+
+      // =====================================================
+      // CHECK SUCCESS
+      // =====================================================
+
+      const isPaid =
+        body.code === "00" ||
+        body.desc ===
+          "success" ||
+        data.status ===
+          "PAID" ||
+        data.status ===
+          "SUCCESS";
+
+      if (!isPaid) {
+
+        console.log(
+          "PAYMENT STILL PENDING"
+        );
+
+        return res.send("OK");
+      }
+
+      // =====================================================
+      // ORDER CODE
+      // =====================================================
 
       const orderCode =
         data.orderCode;
 
-      // ================= FIND BOOKING =================
+      // =====================================================
+      // FIND BOOKING
+      // =====================================================
 
       const booking =
         await Booking.findOne({
@@ -187,10 +295,33 @@ const paymentWebhook =
         });
 
       if (!booking) {
+
+        console.log(
+          "BOOKING NOT FOUND"
+        );
+
         return res.send("OK");
       }
 
-      // ================= UPDATE =================
+      // =====================================================
+      // ALREADY PAID
+      // =====================================================
+
+      if (
+        booking.payment_status ===
+        "paid"
+      ) {
+
+        console.log(
+          "ALREADY PAID"
+        );
+
+        return res.send("OK");
+      }
+
+      // =====================================================
+      // UPDATE DB
+      // =====================================================
 
       booking.payment_status =
         "paid";
@@ -207,11 +338,14 @@ const paymentWebhook =
         "✅ PAYMENT SUCCESS"
       );
 
-      // ================= REALTIME =================
+      // =====================================================
+      // REALTIME
+      // =====================================================
 
       if (
         global.emitBookedSlot
       ) {
+
         global.emitBookedSlot(
           booking.fieldId,
           booking.start_time,
@@ -221,7 +355,9 @@ const paymentWebhook =
       }
 
       return res.send("OK");
+
     } catch (err) {
+
       console.error(
         "WEBHOOK ERROR =>",
         err

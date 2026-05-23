@@ -103,6 +103,7 @@ const Booking = sequelize.define(
       type: DataTypes.ENUM(
         "holding",
         "booked",
+        "completed",
         "cancelled"
       ),
 

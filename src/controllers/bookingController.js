@@ -87,57 +87,111 @@ const cleanExpiredHold = async (
   io = null
 ) => {
   try {
+
     const expired =
-      await Booking.findAll({
-        where: {
-          status: "holding",
-
-          hold_until: {
-            [Op.lt]: new Date(),
-          },
-        },
-      });
-
-    if (
-      io &&
-      expired.length > 0
-    ) {
-      for (const b of expired) {
-        emitSlotUpdate({
-          io,
-          fieldId: b.fieldId,
-          bookingDate:
-            b.booking_date,
-          startTime:
-            b.start_time,
-          status: "available",
-          userId: b.userId,
-        });
-      }
-    }
-
-    await Booking.destroy({
+        await Booking.findAll({
       where: {
+
         status: "holding",
 
         hold_until: {
-          [Op.lt]: new Date(),
+          [Op.lt]:
+          new Date(),
         },
       },
     });
 
-    if (expired.length > 0) {
+    for (const b of expired) {
+
+      if (io) {
+
+        emitSlotUpdate({
+          io,
+
+          fieldId:
+          b.fieldId,
+
+          bookingDate:
+          b.booking_date,
+
+          startTime:
+          b.start_time,
+
+          status:
+          "available",
+        });
+      }
+
+      await b.destroy();
+    }
+
+    if (
+    expired.length > 0
+    ) {
+
       console.log(
-        `⏰ Cleaned ${expired.length} expired holds`
+          `⏰ Cleaned ${expired.length} expired holds`
       );
     }
+
   } catch (err) {
+
     console.error(
-      "❌ cleanExpiredHold error:",
-      err
+        "❌ cleanExpiredHold error:",
+        err
     );
   }
 };
+
+// ================= CLEAN EXPIRED BOOKINGS =================
+const cleanExpiredBookings =
+  async (io = null) => {
+    try {
+      const now = new Date();
+
+      const expiredBookings =
+        await Booking.findAll({
+          where: {
+            status: "booked",
+
+            end_time: {
+              [Op.lt]: now,
+            },
+          },
+        });
+
+      for (const b of expiredBookings) {
+        b.status = "completed";
+
+        await b.save();
+
+        if (io) {
+          emitSlotUpdate({
+            io,
+            fieldId: b.fieldId,
+            bookingDate:
+              b.booking_date,
+            startTime:
+              b.start_time,
+            status: "available",
+          });
+        }
+      }
+
+      if (
+        expiredBookings.length > 0
+      ) {
+        console.log(
+          `✅ Cleared ${expiredBookings.length} expired bookings`
+        );
+      }
+    } catch (err) {
+      console.error(
+        "❌ cleanExpiredBookings error:",
+        err
+      );
+    }
+  };
 
 // ================= HOLD SLOT =================
 const holdSlot = async (
@@ -172,26 +226,34 @@ const holdSlot = async (
     }
 
     const fixedTime =
-      start_time
-        .toString()
-        .padStart(8, "0");
+  start_time.toString().length === 5
+    ? `${start_time}:00`
+    : start_time.toString();
 
     const startDateTime =
       new Date(
         `${booking_date}T${fixedTime}`
       );
 
-    const endDateTime =
-      new Date(
-        startDateTime.getTime() +
-          60 * 60 * 1000
-      );
+    const duration =
+  Number(
+    req.body.duration || 30
+  );
+
+const endDateTime =
+  new Date(
+    startDateTime.getTime() +
+      duration *
+      60 *
+      1000
+  );
 
     // ================= CHECK CONFLICT =================
     const conflict =
       await Booking.findOne({
         where: {
           fieldId: field_id,
+          booking_date,
 
           status: {
             [Op.in]: [
@@ -232,16 +294,6 @@ const holdSlot = async (
           "Slot already taken",
       });
     }
-
-    // ================= REMOVE OLD HOLD =================
-    await Booking.destroy({
-      where: {
-        userId: req.user.id,
-        status: "holding",
-      },
-
-      transaction,
-    });
 
     // ================= HOLD 5 MIN =================
     const holdUntil =
@@ -341,9 +393,9 @@ const cancelHold = async (
     } = req.body;
 
     const fixedTime =
-      start_time
-        .toString()
-        .padStart(8, "0");
+    start_time.toString().length === 5
+        ? `${start_time}:00`
+        : start_time.toString();
 
     const startDateTime =
       new Date(
@@ -351,16 +403,38 @@ const cancelHold = async (
       );
 
     const booking =
-      await Booking.findOne({
-        where: {
-          userId: req.user.id,
-          fieldId: field_id,
-          booking_date,
-          start_time:
-            startDateTime,
-          status: "holding",
+    await Booking.findOne({
+      where: {
+
+        userId: req.user.id,
+
+        fieldId: field_id,
+
+        status: "holding",
+
+        hold_until: {
+          [Op.gt]: new Date(),
         },
-      });
+
+        [Op.and]: [
+          {
+            start_time: {
+              [Op.lte]: startDateTime,
+            },
+          },
+          {
+            end_time: {
+              [Op.gte]: endDateTime,
+            },
+          },
+        ],
+      },
+
+      transaction,
+
+      lock:
+        transaction.LOCK.UPDATE,
+    });
 
     if (!booking) {
       return res.status(404).json({
@@ -406,16 +480,21 @@ const createBooking = async (
   req,
   res
 ) => {
+
   const transaction =
-    await sequelize.transaction();
+      await sequelize.transaction();
 
   try {
+
     const io = getIO(req);
 
     const {
       field_id,
       booking_date,
-      start_time,
+
+      slots,
+
+      duration,
 
       name,
       phone,
@@ -427,10 +506,13 @@ const createBooking = async (
     } = req.body;
 
     if (
-      !field_id ||
-      !booking_date ||
-      !start_time
+        !field_id ||
+        !booking_date ||
+        !slots ||
+        !Array.isArray(slots) ||
+        slots.length === 0
     ) {
+
       await transaction.rollback();
 
       return res.status(400).json({
@@ -439,117 +521,197 @@ const createBooking = async (
       });
     }
 
-    const fixedTime =
-      start_time
-        .toString()
-        .padStart(8, "0");
+    const bookings = [];
 
-    const startDateTime =
-      new Date(
-        `${booking_date}T${fixedTime}`
-      );
+    for (const slot of slots) {
 
-    const booking =
-      await Booking.findOne({
-        where: {
-          userId: req.user.id,
+      const fixedTime =
+    slot.toString().length === 5
+        ? `${slot}:00`
+        : slot.toString();
 
-          fieldId: field_id,
+      const startDateTime =
+          new Date(
+              `${booking_date}T${fixedTime}`
+          );
 
-          start_time:
-            startDateTime,
+      const endDateTime =
+          new Date(
+              startDateTime.getTime() +
+              duration *
+              60 *
+              1000
+          );
 
-          status: "holding",
+      // ================= FIND HOLD =================
 
-          hold_until: {
-            [Op.gt]:
-              new Date(),
-          },
-        },
+      const booking =
+          await Booking.findOne({
 
+            where: {
+
+              userId:
+              req.user.id,
+
+              fieldId:
+              field_id,
+
+              start_time:
+              startDateTime,
+
+              status:
+              "holding",
+
+              hold_until: {
+                [Op.gt]:
+                new Date(),
+              },
+            },
+
+            transaction,
+
+            lock:
+            transaction
+                .LOCK
+                .UPDATE,
+          });
+
+      if (!booking) {
+
+        await transaction.rollback();
+
+        return res.status(404).json({
+          success: false,
+          message:
+          `Slot ${slot} not held`,
+        });
+      }
+
+      // =====================================================
+      // CASH
+      // =====================================================
+
+      if (
+          payment_method ===
+          "cash"
+      ) {
+
+        booking.status =
+            "booked";
+
+        booking.payment_status =
+            "pending";
+
+        booking.hold_until =
+        null;
+      }
+
+      // =====================================================
+      // PAYOS
+      // =====================================================
+
+      else {
+
+        booking.status =
+            "holding";
+
+        booking.payment_status =
+            "pending";
+
+        booking.hold_until =
+            new Date(
+                Date.now() +
+                5 *
+                60 *
+                1000
+            );
+      }
+
+      // =====================================================
+      // INFO
+      // =====================================================
+
+      booking.name = name;
+
+      booking.phone = phone;
+
+      booking.email = email;
+
+      booking.payment_method =
+          payment_method ||
+          "cash";
+
+      booking.transaction_code =
+          transaction_code ||
+          null;
+
+      booking.payment_note =
+          payment_note ||
+          null;
+
+      await booking.save({
         transaction,
-
-        lock:
-          transaction.LOCK
-            .UPDATE,
       });
 
-    if (!booking) {
-      await transaction.rollback();
+      bookings.push(booking);
 
-      return res.status(404).json({
-        success: false,
-        message:
-          "No valid holding slot found",
+      emitSlotUpdate({
+        io,
+
+        fieldId:
+        field_id,
+
+        bookingDate:
+        booking_date,
+
+        startTime:
+        booking.start_time,
+
+        status:
+        payment_method ===
+        "cash"
+            ? "booked"
+            : "holding",
+
+        userId:
+        req.user.id,
+
+        holdUntil:
+        booking.hold_until,
       });
     }
 
-    booking.status =
-      "booked";
-
-    booking.hold_until =
-      null;
-
-    booking.name = name;
-
-    booking.phone = phone;
-
-    booking.email = email;
-
-    booking.payment_method =
-      payment_method ||
-      "cash";
-
-    booking.payment_status =
-      payment_method ===
-      "banking"
-        ? "paid"
-        : "pending";
-
-    booking.transaction_code =
-      transaction_code ||
-      null;
-
-    booking.payment_note =
-      payment_note ||
-      null;
-
-    await booking.save({
-      transaction,
-    });
-
     await transaction.commit();
 
-    emitSlotUpdate({
-      io,
-      fieldId: field_id,
-      bookingDate:
-        booking_date,
-      startTime:
-        booking.start_time,
-      status: "booked",
-      userId: req.user.id,
-    });
-
     return res.json({
+
       success: true,
 
       message:
-        "Booking created successfully",
+      "Booking created successfully",
 
       booking:
-        formatBookingResponse(
-          booking
-        ),
+      formatBookingResponse(
+          bookings[0]
+      ),
+
+      bookings:
+      bookings.map((b) =>
+          formatBookingResponse(
+              b
+          )
+      ),
     });
+
   } catch (err) {
+
     try {
       await transaction.rollback();
     } catch (_) {}
 
     console.error(
-      "❌ createBooking error:",
-      err
+        "❌ createBooking error:",
+        err
     );
 
     return res.status(500).json({
@@ -653,6 +815,13 @@ const getByDate = async (
   res
 ) => {
   try {
+
+    const io = getIO(req);
+
+    await cleanExpiredHold(io);
+
+    await cleanExpiredBookings(io);
+
     const {
       field_id,
       booking_date,

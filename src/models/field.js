@@ -26,7 +26,24 @@ const Field = sequelize.define("field", {
     allowNull: false,
   },
 
-  // ✅ Ảnh đại diện từ link internet
+  // giờ mở sân
+  open_time: {
+    type: DataTypes.STRING,
+    defaultValue: "06:00",
+  },
+
+  // giờ đóng sân
+  close_time: {
+    type: DataTypes.STRING,
+    defaultValue: "23:00",
+  },
+
+  // mỗi slot = 30 phút
+  slot_duration: {
+    type: DataTypes.INTEGER,
+    defaultValue: 30,
+  },
+
   image: {
     type: DataTypes.TEXT,
     allowNull: true,
@@ -35,7 +52,6 @@ const Field = sequelize.define("field", {
     },
   },
 
-  // ✅ Danh sách nhiều ảnh
   images: {
     type: DataTypes.JSON,
     defaultValue: [],

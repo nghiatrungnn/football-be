@@ -850,6 +850,7 @@ const deleteBooking = async (
   res
 ) => {
   try {
+
     const booking =
       await Booking.findByPk(
         req.params.id
@@ -863,17 +864,18 @@ const deleteBooking = async (
       });
     }
 
-    booking.status =
-      "cancelled";
+    // ================= DELETE REAL =================
 
-    await booking.save();
+    await booking.destroy();
 
     return res.json({
       success: true,
       message:
-        "Booking cancelled successfully",
+        "Booking deleted successfully",
     });
+
   } catch (err) {
+
     console.error(
       "❌ deleteBooking error:",
       err

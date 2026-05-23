@@ -88,7 +88,7 @@ router.put(
 
 // ================= DELETE BOOKING =================
 router.delete(
-  "/:id",
+  "/delete/:id",
   auth,
   ctrl.deleteBooking
 );

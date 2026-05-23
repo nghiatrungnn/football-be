@@ -4,6 +4,7 @@ const sequelize = require("../config/db");
 const user = require("./user");
 const field = require("./field");
 const booking = require("./booking");
+const FieldPricing = require("./FieldPricing");
 
 // ===============================
 // RELATIONSHIPS
@@ -32,11 +33,28 @@ booking.belongsTo(field, {
 });
 
 // ===============================
+// Field - Pricing (1-N)
+// ===============================
+
+field.hasMany(FieldPricing, {
+  foreignKey: "fieldId",
+  as: "pricingRules",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+FieldPricing.belongsTo(field, {
+  foreignKey: "fieldId",
+});
+
+// ===============================
 // EXPORT
 // ===============================
+
 module.exports = {
   sequelize,
   user,
   field,
   booking,
+  FieldPricing,
 };

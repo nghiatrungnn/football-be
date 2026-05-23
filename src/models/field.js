@@ -21,6 +21,7 @@ const Field = sequelize.define("field", {
     defaultValue: "Sân 5",
   },
 
+  // giá mặc định
   price_per_hour: {
     type: DataTypes.INTEGER,
     allowNull: false,

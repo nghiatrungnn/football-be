@@ -4,7 +4,6 @@ function generateSlots(field) {
   const {
     open_time,
     close_time,
-    slot_duration,
   } = field;
 
   let [openHour, openMinute] =
@@ -15,27 +14,49 @@ function generateSlots(field) {
 
   let current = new Date();
 
-  current.setHours(openHour, openMinute, 0);
+  current.setHours(
+    openHour,
+    openMinute,
+    0,
+  );
 
   let end = new Date();
 
-  end.setHours(closeHour, closeMinute, 0);
+  end.setHours(
+    closeHour,
+    closeMinute,
+    0,
+  );
 
   while (current < end) {
+
     let next = new Date(current);
 
+    // mặc định 1 tiếng
     next.setMinutes(
-      next.getMinutes() + slot_duration
+      next.getMinutes() + 60
     );
 
     if (next > end) break;
 
     slots.push({
-      start: current.toTimeString().slice(0, 5),
-      end: next.toTimeString().slice(0, 5),
+      start:
+      current
+          .toTimeString()
+          .slice(0, 5),
+
+      end:
+      next
+          .toTimeString()
+          .slice(0, 5),
     });
 
-    current = next;
+    // nhảy 30 phút
+    current = new Date(current);
+
+    current.setMinutes(
+      current.getMinutes() + 30
+    );
   }
 
   return slots;

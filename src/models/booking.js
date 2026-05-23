@@ -147,17 +147,6 @@ const Booking = sequelize.define(
     freezeTableName: true,
 
     // ================= UNIQUE SLOT =================
-    indexes: [
-      {
-        unique: true,
-
-        fields: [
-          "fieldId",
-          "booking_date",
-          "start_time",
-        ],
-      },
-    ],
   }
 );
 

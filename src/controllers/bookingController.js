@@ -11,17 +11,26 @@ const { Op } = require("sequelize");
 const getIO = (req) => req.app.get("io");
 
 // ================= FORMAT TIME VN =================
-const formatVNTime = (date) => {
+const formatVNTime = (
+  date
+) => {
+
   if (!date) return null;
 
-  return new Date(date).toLocaleTimeString(
-    "vi-VN",
-    {
-      timeZone: "Asia/Ho_Chi_Minh",
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  );
+  const d =
+  new Date(date);
+
+  const h =
+  d.getHours()
+      .toString()
+      .padStart(2, "0");
+
+  const m =
+  d.getMinutes()
+      .toString()
+      .padStart(2, "0");
+
+  return `${h}:${m}`;
 };
 
 // ================= FORMAT DATE =================
@@ -35,23 +44,58 @@ const formatDateOnly = (date) => {
 const formatBookingResponse = (
   booking
 ) => {
+
+  // ================= OCCUPIED SLOTS =================
+
+  const occupied_slots = [];
+
+  let current =
+      new Date(
+          booking.start_time
+      );
+
+  const end =
+      new Date(
+          booking.end_time
+      );
+
+  while (current < end) {
+
+    occupied_slots.push(
+        `${current
+            .getHours()
+            .toString()
+            .padStart(2, "0")}:${current
+            .getMinutes()
+            .toString()
+            .padStart(2, "0")}`
+    );
+
+    current = new Date(
+        current.getTime() +
+        30 * 60 * 1000
+    );
+  }
+
   return {
     ...booking.toJSON(),
 
     booking_date:
-      formatDateOnly(
-        booking.booking_date
-      ),
+        formatDateOnly(
+            booking.booking_date
+        ),
 
     start_time:
-      formatVNTime(
-        booking.start_time
-      ),
+        formatVNTime(
+            booking.start_time
+        ),
 
     end_time:
-      formatVNTime(
-        booking.end_time
-      ),
+        formatVNTime(
+            booking.end_time
+        ),
+
+    occupied_slots,
   };
 };
 
@@ -118,7 +162,7 @@ const cleanExpiredHold = async (
           b.start_time,
 
           status:
-          "available",
+          "cancelled",
         });
       }
 
@@ -173,7 +217,8 @@ const cleanExpiredBookings =
               b.booking_date,
             startTime:
               b.start_time,
-            status: "available",
+            status:
+            "completed",
           });
         }
       }
@@ -237,7 +282,7 @@ const holdSlot = async (
 
     const duration =
   Number(
-    req.body.duration || 30
+    req.body.duration || 60
   );
 
 const endDateTime =
@@ -250,40 +295,39 @@ const endDateTime =
 
     // ================= CHECK CONFLICT =================
     const conflict =
-      await Booking.findOne({
-        where: {
-          fieldId: field_id,
-          booking_date,
+await Booking.findOne({
 
-          status: {
-            [Op.in]: [
-              "holding",
-              "booked",
-            ],
-          },
+  where: {
 
-          [Op.and]: [
-            {
-              start_time: {
-                [Op.lt]:
-                  endDateTime,
-              },
-            },
-            {
-              end_time: {
-                [Op.gt]:
-                  startDateTime,
-              },
-            },
-          ],
-        },
+    fieldId: field_id,
 
-        transaction,
+    booking_date,
 
-        lock:
-          transaction.LOCK
-            .UPDATE,
-      });
+    status: {
+      [Op.in]: [
+        "holding",
+        "booked",
+      ],
+    },
+
+    [Op.and]: [
+
+      sequelize.where(
+        sequelize.col("start_time"),
+        "<",
+        endDateTime
+      ),
+
+      sequelize.where(
+        sequelize.col("end_time"),
+        ">",
+        startDateTime
+      ),
+    ],
+  },
+
+  transaction,
+});
 
     if (conflict) {
       await transaction.rollback();
@@ -339,17 +383,38 @@ const endDateTime =
 
     await transaction.commit();
 
-    emitSlotUpdate({
-      io,
-      fieldId: field_id,
-      bookingDate:
-        booking_date,
-      startTime:
-        booking.start_time,
-      status: "holding",
-      userId: req.user.id,
-      holdUntil,
-    });
+    let emitTime = new Date(
+  booking.start_time
+);
+
+while (
+  emitTime < booking.end_time
+) {
+
+  emitSlotUpdate({
+    io,
+
+    fieldId: field_id,
+
+    bookingDate:
+      booking_date,
+
+    startTime:
+      emitTime,
+
+    status: "holding",
+
+    userId:
+      req.user.id,
+
+    holdUntil,
+  });
+
+  emitTime = new Date(
+    emitTime.getTime() +
+      30 * 60 * 1000
+  );
+}
 
     return res.json({
       success: true,
@@ -398,43 +463,46 @@ const cancelHold = async (
         : start_time.toString();
 
     const startDateTime =
-      new Date(
-        `${booking_date}T${fixedTime}`
-      );
+new Date(
+  `${booking_date}T${fixedTime}`
+);
+
+console.log(
+  "START =>",
+  startDateTime
+);
 
     const booking =
-    await Booking.findOne({
-      where: {
+await Booking.findOne({
 
-        userId: req.user.id,
+  where: {
 
-        fieldId: field_id,
+    userId: req.user.id,
 
-        status: "holding",
+    fieldId: field_id,
 
-        hold_until: {
-          [Op.gt]: new Date(),
-        },
+    status: "holding",
 
-        [Op.and]: [
-          {
-            start_time: {
-              [Op.lte]: startDateTime,
-            },
-          },
-          {
-            end_time: {
-              [Op.gte]: endDateTime,
-            },
-          },
-        ],
-      },
+    hold_until: {
+      [Op.gt]: new Date(),
+    },
 
-      transaction,
+    [Op.and]: [
 
-      lock:
-        transaction.LOCK.UPDATE,
-    });
+      sequelize.where(
+        sequelize.col("start_time"),
+        "<=",
+        startDateTime
+      ),
+
+      sequelize.where(
+        sequelize.col("end_time"),
+        ">",
+        startDateTime
+      ),
+    ],
+  },
+});
 
     if (!booking) {
       return res.status(404).json({
@@ -445,6 +513,7 @@ const cancelHold = async (
     }
 
     await booking.destroy();
+    await cleanExpiredHold(io);
 
     emitSlotUpdate({
       io,
@@ -453,7 +522,7 @@ const cancelHold = async (
         booking_date,
       startTime:
         startDateTime,
-      status: "available",
+      status: "cancelled",
       userId: req.user.id,
     });
 
@@ -570,10 +639,6 @@ const createBooking = async (
 
             transaction,
 
-            lock:
-            transaction
-                .LOCK
-                .UPDATE,
           });
 
       if (!booking) {
@@ -655,30 +720,42 @@ const createBooking = async (
 
       bookings.push(booking);
 
-      emitSlotUpdate({
-        io,
+      let emitTime = new Date(
+  booking.start_time
+);
 
-        fieldId:
-        field_id,
+while (
+  emitTime < booking.end_time
+) {
 
-        bookingDate:
-        booking_date,
+  emitSlotUpdate({
+    io,
 
-        startTime:
-        booking.start_time,
+    fieldId: field_id,
 
-        status:
-        payment_method ===
-        "cash"
-            ? "booked"
-            : "holding",
+    bookingDate:
+      booking_date,
 
-        userId:
-        req.user.id,
+    startTime:
+      emitTime,
 
-        holdUntil:
-        booking.hold_until,
-      });
+    status:
+      payment_method === "cash"
+          ? "booked"
+          : "holding",
+
+    userId:
+      req.user.id,
+
+    holdUntil:
+      booking.hold_until,
+  });
+
+  emitTime = new Date(
+    emitTime.getTime() +
+      30 * 60 * 1000
+  );
+}
     }
 
     await transaction.commit();

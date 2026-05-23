@@ -1,13 +1,9 @@
 const router = require("express").Router();
 
-const auth = require("../middlewares/authMiddleware"); // FIX: thống nhất 1 file
+const auth = require("../middlewares/authMiddleware");
 const isAdmin = require("../middlewares/isAdmin");
-const ctrl = require("../controllers/fieldController");
 
-// ================= DEBUG (QUAN TRỌNG) =================
-console.log("auth:", typeof auth);
-console.log("isAdmin:", typeof isAdmin);
-console.log("create:", typeof ctrl?.create);
+const ctrl = require("../controllers/fieldController");
 
 // ================= CREATE =================
 router.post("/", auth, isAdmin, ctrl.create);
@@ -17,6 +13,9 @@ router.get("/", ctrl.getAll);
 
 // ================= GET DETAIL =================
 router.get("/:id", ctrl.getById);
+
+// ================= GET SLOTS =================
+router.get("/:id/slots", ctrl.getFieldSlots);
 
 // ================= UPDATE =================
 router.put("/:id", auth, isAdmin, ctrl.update);

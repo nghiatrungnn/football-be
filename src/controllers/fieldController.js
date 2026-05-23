@@ -1,4 +1,5 @@
 const { field } = require("../models");
+const generateSlots = require("../utils/generateSlots");
 
 // ===== CREATE =====
 exports.create = async (req, res) => {
@@ -77,5 +78,31 @@ exports.delete = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ===== GET FIELD SLOTS =====
+exports.getFieldSlots = async (req, res) => {
+  try {
+    const oneField = await field.findByPk(req.params.id);
+
+    if (!oneField) {
+      return res.status(404).json({
+        success: false,
+        message: "Field not found",
+      });
+    }
+
+    const slots = generateSlots(oneField);
+
+    res.json({
+      success: true,
+      slots,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };

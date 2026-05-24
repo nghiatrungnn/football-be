@@ -31,14 +31,14 @@ const Booking = sequelize.define(
 
     // ================= TIME =================
     start_time: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
+  type: DataTypes.TIME,
+  allowNull: false,
+},
 
-    end_time: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
+end_time: {
+  type: DataTypes.TIME,
+  allowNull: false,
+},
 
     // ================= CUSTOMER =================
     name: {

@@ -11,26 +11,13 @@ const { Op } = require("sequelize");
 const getIO = (req) => req.app.get("io");
 
 // ================= FORMAT TIME VN =================
-const formatVNTime = (
-  date
-) => {
+const formatVNTime = (time) => {
 
-  if (!date) return null;
+  if (!time) return null;
 
-  const d =
-  new Date(date);
-
-  const h =
-  d.getHours()
-      .toString()
-      .padStart(2, "0");
-
-  const m =
-  d.getMinutes()
-      .toString()
-      .padStart(2, "0");
-
-  return `${h}:${m}`;
+  return time
+    .toString()
+    .slice(0, 5);
 };
 
 // ================= FORMAT DATE =================
@@ -49,33 +36,37 @@ const formatBookingResponse = (
 
   const occupied_slots = [];
 
-  let current =
-      new Date(
-          booking.start_time
-      );
+const [sh, sm] =
+  booking.start_time
+    .split(":")
+    .map(Number);
 
-  const end =
-      new Date(
-          booking.end_time
-      );
+const [eh, em] =
+  booking.end_time
+    .split(":")
+    .map(Number);
 
-  while (current < end) {
+let current =
+  sh * 60 + sm;
 
-    occupied_slots.push(
-        `${current
-            .getHours()
-            .toString()
-            .padStart(2, "0")}:${current
-            .getMinutes()
-            .toString()
-            .padStart(2, "0")}`
-    );
+const end =
+  eh * 60 + em;
 
-    current = new Date(
-        current.getTime() +
-        30 * 60 * 1000
-    );
-  }
+while (current < end) {
+
+  const h =
+    Math.floor(current / 60);
+
+  const m =
+    current % 60;
+
+  occupied_slots.push(
+    `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+  );
+
+  current += 30;
+}
+
 
   return {
     ...booking.toJSON(),
@@ -97,6 +88,7 @@ const formatBookingResponse = (
 
     occupied_slots,
   };
+
 };
 
 // ================= EMIT REALTIME =================
@@ -275,23 +267,27 @@ const holdSlot = async (
     ? `${start_time}:00`
     : start_time.toString();
 
-    const startDateTime =
-      new Date(
-        `${booking_date}T${fixedTime}`
-      );
+    const startDateTime = fixedTime;
 
     const duration =
   Number(
     req.body.duration || 60
   );
 
+const [h, m, s] =
+  fixedTime.split(":").map(Number);
+
+const end = new Date(
+  2025,
+  1,
+  1,
+  h,
+  m + duration,
+  s || 0
+);
+
 const endDateTime =
-  new Date(
-    startDateTime.getTime() +
-      duration *
-      60 *
-      1000
-  );
+  `${end.getHours().toString().padStart(2, "0")}:${end.getMinutes().toString().padStart(2, "0")}:00`;
 
     // ================= CHECK CONFLICT =================
     const conflict =
@@ -462,10 +458,7 @@ const cancelHold = async (
         ? `${start_time}:00`
         : start_time.toString();
 
-    const startDateTime =
-new Date(
-  `${booking_date}T${fixedTime}`
-);
+    const startDateTime = fixedTime;
 
 console.log(
   "START =>",
@@ -599,18 +592,22 @@ const createBooking = async (
         ? `${slot}:00`
         : slot.toString();
 
-      const startDateTime =
-          new Date(
-              `${booking_date}T${fixedTime}`
-          );
+      const startDateTime = fixedTime;
 
-      const endDateTime =
-          new Date(
-              startDateTime.getTime() +
-              duration *
-              60 *
-              1000
-          );
+      const [h, m, s] =
+  fixedTime.split(":").map(Number);
+
+const end = new Date(
+  2025,
+  1,
+  1,
+  h,
+  m + duration,
+  s || 0
+);
+
+const endDateTime =
+  `${end.getHours().toString().padStart(2, "0")}:${end.getMinutes().toString().padStart(2, "0")}:00`;
 
       // ================= FIND HOLD =================
 

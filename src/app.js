@@ -27,4 +27,8 @@ app.use("/api/field-pricing", fieldPricingRoutes);
 // review routes
 app.use('/api/reviews', reviewRoutes);
 
+// payment routes
+const paymentRoutes = require("./routes/paymentRoutes");
+app.use("/api/payments", paymentRoutes);
+
 module.exports = app;

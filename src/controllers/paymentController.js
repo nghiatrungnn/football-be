@@ -327,7 +327,7 @@ const paymentWebhook =
         "paid";
 
       booking.status =
-        "booked";
+  "paid";
 
       booking.hold_until =
         null;

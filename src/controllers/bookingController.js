@@ -188,11 +188,16 @@ const cleanExpiredBookings =
       const expiredBookings =
         await Booking.findAll({
           where: {
-            status: "booked",
+            status: {
+  [Op.in]: [
+    "booked",
+    "paid",
+  ],
+},
 
-            end_time: {
-              [Op.lt]: now,
-            },
+end_time: {
+  [Op.lt]: now,
+},
           },
         });
 
@@ -731,10 +736,7 @@ while (
     startTime:
       emitTime,
 
-   status:
-  payment_method === "cash"
-      ? "holding"
-      : "booked",
+   status: "holding",
 
     userId:
       req.user.id,

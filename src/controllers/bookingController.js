@@ -649,46 +649,41 @@ const endDateTime =
         });
       }
 
-      // =====================================================
-      // CASH
-      // =====================================================
+// =====================================================
+// CASH
+// =====================================================
 
-      if (
-          payment_method ===
-          "cash"
-      ) {
+if (payment_method === "cash") {
 
-        booking.status =
-            "booked";
+  // Chưa thanh toán => chỉ giữ sân
+  booking.status = "holding";
 
-        booking.payment_status =
-            "pending";
+  booking.payment_status = "pending";
 
-        booking.hold_until =
-        null;
-      }
+  booking.hold_until =
+      new Date(
+          Date.now() +
+          5 * 60 * 1000
+      );
+}
 
-      // =====================================================
-      // PAYOS
-      // =====================================================
+// =====================================================
+// TRANSFER / PAYOS
+// =====================================================
 
-      else {
+else {
 
-        booking.status =
-            "holding";
+  // Chờ PayOS xác nhận
+  booking.status = "holding";
 
-        booking.payment_status =
-            "pending";
+  booking.payment_status = "pending";
 
-        booking.hold_until =
-            new Date(
-                Date.now() +
-                5 *
-                60 *
-                1000
-            );
-      }
-
+  booking.hold_until =
+      new Date(
+          Date.now() +
+          10 * 60 * 1000
+      );
+}
       // =====================================================
       // INFO
       // =====================================================
@@ -736,10 +731,10 @@ while (
     startTime:
       emitTime,
 
-    status:
-      payment_method === "cash"
-          ? "booked"
-          : "holding",
+   status:
+  payment_method === "cash"
+      ? "holding"
+      : "booked",
 
     userId:
       req.user.id,

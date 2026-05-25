@@ -562,6 +562,8 @@
 
   duration,
 
+  total_price,
+
   name,
   phone,
   email,
@@ -573,6 +575,8 @@
   field_type,
   field_name,
 } = req.body;
+
+console.log(req.body);
 
       if (
           !field_id ||
@@ -698,6 +702,9 @@
         booking.phone = phone;
 
         booking.email = email;
+
+        booking.total_price =
+    total_price || 0;
 
         booking.payment_method =
             payment_method ||

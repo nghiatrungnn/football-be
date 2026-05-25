@@ -6,6 +6,8 @@ const crypto =
 
 const {
   booking: Booking,
+  user: User,
+  field: Field,
 } = require("../models");
 
 // =====================================================
@@ -27,9 +29,21 @@ const createPayment =
       // =====================================================
 
       const booking =
-        await Booking.findByPk(
-          bookingId
-        );
+  await Booking.findByPk(
+    bookingId,
+    {
+      include: [
+        {
+          model: User,
+          attributes: ["name"],
+        },
+        {
+          model: Field,
+          attributes: ["name"],
+        },
+      ],
+    }
+  );
 
       if (!booking) {
 
@@ -107,7 +121,7 @@ const createPayment =
           Number(amount),
 
         description:
-          `Dat san ${booking.id}`,
+  `Ten:${booking.user.name} Dat San:${booking.field.name}`.slice(0, 25),
 
         returnUrl,
 
@@ -327,7 +341,7 @@ const paymentWebhook =
         "paid";
 
       booking.status =
-  "paid";
+        "booked";
 
       booking.hold_until =
         null;

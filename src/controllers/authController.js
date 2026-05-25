@@ -30,6 +30,7 @@ const formatUser = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
+  phone: user.phone || "",
   role: user.role,
   avatar: user.avatar || "",
 });
@@ -78,6 +79,7 @@ exports.register = async (
       name,
       email,
       password,
+      phone,
     } = req.body;
 
     // VALIDATE
@@ -97,6 +99,10 @@ exports.register = async (
       .trim()
       .toLowerCase();
 
+    if (phone) {
+      phone = phone.trim();
+    }
+
     if (!validateEmail(email)) {
       return res.status(400).json({
         message: "Invalid email",
@@ -110,7 +116,7 @@ exports.register = async (
       });
     }
 
-    // CHECK EXIST
+    // CHECK EXIST EMAIL
     const exist =
       await User.findOne({
         where: { email },
@@ -121,6 +127,21 @@ exports.register = async (
         message:
           "Email already exists",
       });
+    }
+
+    // CHECK EXIST PHONE
+    if (phone) {
+      const existPhone =
+        await User.findOne({
+          where: { phone },
+        });
+
+      if (existPhone) {
+        return res.status(400).json({
+          message:
+            "Phone already exists",
+        });
+      }
     }
 
     // HASH PASSWORD
@@ -136,6 +157,7 @@ exports.register = async (
         name,
         email,
         password: hash,
+        phone,
         role: "user",
       });
 
@@ -295,6 +317,7 @@ exports.loginGoogle = async (
           name,
           email,
           password: null,
+          phone: null,
           role: "user",
           googleId,
           avatar: picture,
@@ -380,19 +403,20 @@ exports.getMe = async (
   }
 };
 
-// ================= UPDATE USER NAME =================
-exports.updateName = async (
+// ================= UPDATE PROFILE =================
+exports.updateProfile = async (
   req,
   res
 ) => {
   try {
-    const { name } =
+    const { name, phone, email, avatar } =
       req.body;
 
-    if (!name) {
+    // CHECK DATA
+    if (!name && !phone && !email && !avatar) {
       return res.status(400).json({
         message:
-          "Name is required",
+          "Nothing to update",
       });
     }
 
@@ -408,26 +432,153 @@ exports.updateName = async (
       });
     }
 
-    user.name =
-      name.trim();
+    // CHECK PHONE EXIST
+    if (phone) {
+      const existPhone =
+        await User.findOne({
+          where: { phone },
+        });
+
+      if (
+        existPhone &&
+        existPhone.id !==
+          user.id
+      ) {
+        return res.status(400).json({
+          message:
+            "Phone already exists",
+        });
+      }
+    }
+
+    // UPDATE NAME
+if (name) {
+  user.name =
+    name.trim();
+}
+
+// UPDATE PHONE
+if (phone) {
+  user.phone =
+    phone.trim();
+}
+
+// UPDATE EMAIL
+if (email) {
+  const newEmail =
+    email
+      .trim()
+      .toLowerCase();
+
+  // VALIDATE EMAIL
+  if (
+    !validateEmail(newEmail)
+  ) {
+    return res.status(400).json({
+      message:
+        "Invalid email",
+    });
+  }
+
+  // CHECK EXIST EMAIL
+  const existEmail =
+    await User.findOne({
+      where: {
+        email: newEmail,
+      },
+    });
+
+  if (
+    existEmail &&
+    existEmail.id !==
+      user.id
+  ) {
+    return res.status(400).json({
+      message:
+        "Email already exists",
+    });
+  }
+
+  user.email = newEmail;
+}
+
+// UPDATE AVATAR
+if (avatar) {
+  user.avatar =
+    avatar.trim();
+}
 
     await user.save();
 
     return res.json({
       message:
-        "Update name success",
+        "Update profile success",
 
       user: formatUser(user),
     });
   } catch (err) {
     console.error(
-      "Update name error:",
+      "Update profile error:",
       err
     );
 
     return res.status(500).json({
       message:
         "Update failed",
+      error: err.message,
+    });
+  }
+};
+
+// ================= UPDATE AVATAR =================
+exports.updateAvatar = async (
+  req,
+  res
+) => {
+  try {
+    const { avatar } =
+      req.body;
+
+    if (!avatar) {
+      return res.status(400).json({
+        message:
+          "Avatar is required",
+      });
+    }
+
+    const user =
+      await User.findByPk(
+        req.user.id
+      );
+
+    if (!user) {
+      return res.status(404).json({
+        message:
+          "User not found",
+      });
+    }
+
+    // UPDATE AVATAR
+    user.avatar =
+      avatar.trim();
+
+    await user.save();
+
+    return res.json({
+      message:
+        "Update avatar success",
+
+      user: formatUser(user),
+    });
+  } catch (err) {
+    console.error(
+      "Update avatar error:",
+      err
+    );
+
+    return res.status(500).json({
+      message:
+        "Update avatar failed",
       error: err.message,
     });
   }
@@ -479,6 +630,7 @@ exports.updateUser = async (
     const {
       name,
       email,
+      phone,
       role,
     } = req.body;
 
@@ -518,6 +670,28 @@ exports.updateUser = async (
         email
           .trim()
           .toLowerCase();
+    }
+
+    // CHECK PHONE EXIST
+    if (phone) {
+      const existPhone =
+        await User.findOne({
+          where: { phone },
+        });
+
+      if (
+        existPhone &&
+        existPhone.id !==
+          user.id
+      ) {
+        return res.status(400).json({
+          message:
+            "Phone already exists",
+        });
+      }
+
+      user.phone =
+        phone.trim();
     }
 
     if (name) {

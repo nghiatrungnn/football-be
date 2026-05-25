@@ -22,6 +22,16 @@ const User = sequelize.define("user", {
     },
   },
 
+   // 🔥 THÊM SĐT
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true, // cho phép null nếu chưa nhập
+    unique: true, // không cho trùng số
+    validate: {
+      len: [9, 11], // giới hạn độ dài
+    },
+  },
+
   // ❗ FIX: cho phép null (Google login)
   password: {
     type: DataTypes.STRING,

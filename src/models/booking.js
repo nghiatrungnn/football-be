@@ -98,6 +98,18 @@ end_time: {
       defaultValue: null,
     },
 
+    field_type: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
+
+field_name: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
+
     // ================= STATUS =================
     status: {
       type: DataTypes.ENUM(

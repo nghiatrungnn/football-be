@@ -63,11 +63,18 @@ router.get(
   authController.getMe
 );
 
-// UPDATE NAME
+// UPDATE PROFILE
 router.put(
-  "/update-name",
+  "/update-profile",
   authMiddleware,
-  authController.updateName
+  authController.updateProfile
+);
+
+// UPDATE AVATAR
+router.put(
+  "/update-avatar",
+  authMiddleware,
+  authController.updateAvatar
 );
 
 module.exports = router;

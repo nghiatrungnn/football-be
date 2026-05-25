@@ -320,9 +320,37 @@ exports.getFieldSlots =
           oneField
         );
 
+      const now = new Date();
+
+const today =
+  new Date()
+    .toLocaleDateString("en-CA");
+
+const selectedDate =
+  req.query.date || today;
+
+const updatedSlots =
+  slots.map((slot) => {
+
+    const slotDateTime =
+      new Date(
+        `${selectedDate}T${slot.start}:00`
+      );
+
+    const isPast =
+      selectedDate === today &&
+      slotDateTime.getTime() <
+      now.getTime();
+
+    return {
+      ...slot,
+      isPast,
+    };
+  });
+
       res.json({
         success: true,
-        slots,
+        slots: updatedSlots,
       });
     } catch (err) {
       res.status(500).json({

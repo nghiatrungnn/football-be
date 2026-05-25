@@ -74,12 +74,7 @@ const createPayment =
       // ORDER CODE
       // =====================================================
 
-      const orderCode =
-        Number(
-          Date.now()
-            .toString()
-            .slice(-6)
-        );
+      const orderCode = booking.id;
 
       // =====================================================
       // SAVE DB
@@ -294,19 +289,25 @@ const paymentWebhook =
       // =====================================================
 
       const orderCode =
-        data.orderCode;
+         data.orderCode;
+
+      console.log(
+        "ORDER CODE =>",
+          orderCode
+      );
 
       // =====================================================
       // FIND BOOKING
       // =====================================================
 
       const booking =
-        await Booking.findOne({
-          where: {
-            transaction_code:
-              orderCode.toString(),
-          },
-        });
+  await Booking.findByPk(orderCode);
+
+      console.log(
+  "BOOKING =>",
+  booking
+);
+  
 
       if (!booking) {
 

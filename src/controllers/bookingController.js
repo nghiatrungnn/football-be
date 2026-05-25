@@ -662,17 +662,15 @@
 
   if (payment_method === "cash") {
 
-    // Chưa thanh toán => chỉ giữ sân
-    booking.status = "holding";
+  // Đặt sân thành công
+  booking.status = "booked";
 
-    booking.payment_status = "pending";
+  // Nhưng chưa thanh toán
+  booking.payment_status = "pending";
 
-    booking.hold_until =
-        new Date(
-            Date.now() +
-            5 * 60 * 1000
-        );
-  }
+  // Không giữ chỗ nữa
+  booking.hold_until = null;
+}
 
   // =====================================================
   // TRANSFER / PAYOS

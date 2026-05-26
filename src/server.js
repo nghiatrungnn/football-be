@@ -44,23 +44,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ================= ROUTES =================
-const bookingRoutes =
-  require("./routes/bookingRoutes");
-
-const paymentRoutes =
-  require("./routes/paymentRoutes");
-
-app.use(
-  "/api/bookings",
-  bookingRoutes
-);
-
-app.use(
-  "/api/payments",
-  paymentRoutes
-);
-
 // ================= HOLD CONFIG =================
 const HOLD_MINUTES = 5;
 

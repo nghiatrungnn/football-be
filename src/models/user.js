@@ -54,12 +54,12 @@ const User = sequelize.define("user", {
     allowNull: true,
   },
 
-  resetOtp: {
+  resetotp: {
   type: DataTypes.STRING,
   allowNull: true,
 },
 
-resetOtpExpire: {
+resetotpexpire: {
   type: DataTypes.DATE,
   allowNull: true,
 },

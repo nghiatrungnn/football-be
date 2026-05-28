@@ -77,11 +77,12 @@ exports.register = async (
 ) => {
   try {
     let {
-      name,
-      email,
-      password,
-      phone,
-    } = req.body;
+  name,
+  email,
+  password,
+  phone,
+  role,
+} = req.body;
 
     // VALIDATE
     if (
@@ -159,7 +160,7 @@ exports.register = async (
         email,
         password: hash,
         phone,
-        role: "user",
+        role: role || "user",
       });
 
     return res.status(201).json({
@@ -641,14 +642,13 @@ async (req, res) => {
     ).toString();
 
     // SAVE OTP
-    user.resetOtp =
-    otp;
+    user.resetotp = otp;
 
-    user.resetOtpExpire =
-    new Date(
-      Date.now() +
-      5 * 60 * 1000
-    );
+user.resetotpexpire =
+  new Date(
+    Date.now() +
+    5 * 60 * 1000
+  );
 
     await user.save();
 
@@ -758,7 +758,7 @@ async (req, res) => {
           .trim()
           .toLowerCase(),
 
-        resetOtp: otp,
+        resetotp: otp,
       },
     });
 
@@ -777,7 +777,7 @@ async (req, res) => {
     // CHECK EXPIRE
     if (
       new Date(
-        user.resetOtpExpire
+        user.resetotpexpire
       ) < new Date()
     ) {
 
@@ -803,10 +803,10 @@ async (req, res) => {
     hash;
 
     // CLEAR OTP
-    user.resetOtp =
+    user.resetotp =
     null;
 
-    user.resetOtpExpire =
+    user.resetotpexpire =
     null;
 
     await user.save();

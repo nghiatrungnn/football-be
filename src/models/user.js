@@ -53,6 +53,16 @@ const User = sequelize.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+
+  resetOtp: {
+  type: DataTypes.STRING,
+  allowNull: true,
+},
+
+resetOtpExpire: {
+  type: DataTypes.DATE,
+  allowNull: true,
+},
 }, {
   timestamps: true,
 });

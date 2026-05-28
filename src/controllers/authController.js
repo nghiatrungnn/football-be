@@ -585,40 +585,260 @@ exports.updateAvatar = async (
   }
 };
 
+const nodemailer =
+require("nodemailer");
+
 // ================= FORGOT PASSWORD =================
 exports.forgotPassword =
-  async (req, res) => {
-    try {
-      const { email } =
-        req.body;
+async (req, res) => {
 
-      if (!email) {
-        return res.status(400).json({
-          message:
-            "Email is required",
-        });
-      }
+  try {
 
-      return res.json({
+    const { email } =
+    req.body;
+
+    if (!email) {
+
+      return res.status(400)
+      .json({
+
+        success: false,
+
         message:
-          "Reset password feature coming soon",
-
-        email: email
-          .trim()
-          .toLowerCase(),
-      });
-    } catch (err) {
-      console.error(
-        "Forgot password error:",
-        err
-      );
-
-      return res.status(500).json({
-        message: "Error",
-        error: err.message,
+        "Email is required",
       });
     }
-  };
+
+    // FIND USER
+    const user =
+    await User.findOne({
+
+      where: {
+        email:
+        email
+          .trim()
+          .toLowerCase(),
+      },
+    });
+
+    if (!user) {
+
+      return res.status(404)
+      .json({
+
+        success: false,
+
+        message:
+        "Email not found",
+      });
+    }
+
+    // CREATE OTP
+    const otp =
+    Math.floor(
+      100000 +
+      Math.random() * 900000
+    ).toString();
+
+    // SAVE OTP
+    user.resetOtp =
+    otp;
+
+    user.resetOtpExpire =
+    new Date(
+      Date.now() +
+      5 * 60 * 1000
+    );
+
+    await user.save();
+
+    // MAIL CONFIG
+    const transporter =
+    nodemailer.createTransport({
+
+      service:
+      "gmail",
+
+      auth: {
+
+        user:
+        process.env.EMAIL_USER,
+
+        pass:
+        process.env.EMAIL_PASS,
+      },
+    });
+
+    // SEND MAIL
+    await transporter.sendMail({
+
+      from:
+      process.env.EMAIL_USER,
+
+      to: email,
+
+      subject:
+      "OTP RESET PASSWORD",
+
+      html: `
+        <h2>Reset Password</h2>
+
+        <p>Mã OTP của bạn:</p>
+
+        <h1>${otp}</h1>
+
+        <p>OTP hết hạn sau 5 phút.</p>
+      `,
+    });
+
+    return res.json({
+
+      success: true,
+
+      message:
+      "OTP sent to email",
+    });
+
+  } catch (err) {
+
+    console.error(
+      "Forgot password error:",
+      err
+    );
+
+    return res.status(500)
+    .json({
+
+      success: false,
+
+      message:
+      "Server error",
+
+      error:
+      err.message,
+    });
+  }
+};
+
+// ================= RESET PASSWORD =================
+exports.resetPassword =
+async (req, res) => {
+
+  try {
+
+    const {
+      email,
+      otp,
+      newPassword,
+    } = req.body;
+
+    if (
+      !email ||
+      !otp ||
+      !newPassword
+    ) {
+
+      return res.status(400)
+      .json({
+
+        success: false,
+
+        message:
+        "Missing fields",
+      });
+    }
+
+    // FIND USER
+    const user =
+    await User.findOne({
+
+      where: {
+        email:
+        email
+          .trim()
+          .toLowerCase(),
+
+        resetOtp: otp,
+      },
+    });
+
+    if (!user) {
+
+      return res.status(400)
+      .json({
+
+        success: false,
+
+        message:
+        "OTP invalid",
+      });
+    }
+
+    // CHECK EXPIRE
+    if (
+      new Date(
+        user.resetOtpExpire
+      ) < new Date()
+    ) {
+
+      return res.status(400)
+      .json({
+
+        success: false,
+
+        message:
+        "OTP expired",
+      });
+    }
+
+    // HASH PASSWORD
+    const hash =
+    await bcrypt.hash(
+      newPassword,
+      10
+    );
+
+    // UPDATE PASSWORD
+    user.password =
+    hash;
+
+    // CLEAR OTP
+    user.resetOtp =
+    null;
+
+    user.resetOtpExpire =
+    null;
+
+    await user.save();
+
+    return res.json({
+
+      success: true,
+
+      message:
+      "Reset password success",
+    });
+
+  } catch (err) {
+
+    console.error(
+      "Reset password error:",
+      err
+    );
+
+    return res.status(500)
+    .json({
+
+      success: false,
+
+      message:
+      "Server error",
+
+      error:
+      err.message,
+    });
+  }
+};
 
 // ================= UPDATE USER (ADMIN) =================
 exports.updateUser = async (

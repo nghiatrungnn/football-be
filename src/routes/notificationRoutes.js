@@ -13,6 +13,7 @@ const ctrl =
 
 router.post(
   "/",
+  auth,
   ctrl.createNotification
 );
 
@@ -20,6 +21,7 @@ router.post(
 
 router.get(
   "/",
+  auth,
   ctrl.getAllNotifications
 );
 
@@ -27,6 +29,7 @@ router.get(
 
 router.get(
   "/my",
+  auth,
   ctrl.getMyNotifications
 );
 
@@ -34,6 +37,7 @@ router.get(
 
 router.get(
   "/:id",
+  auth,
   ctrl.getNotificationById
 );
 
@@ -41,6 +45,7 @@ router.get(
 
 router.put(
   "/:id",
+  auth,
   ctrl.updateNotification
 );
 
@@ -48,6 +53,7 @@ router.put(
 
 router.put(
   "/read/:id",
+  auth,
   ctrl.markAsRead
 );
 
@@ -55,6 +61,7 @@ router.put(
 
 router.delete(
   "/:id",
+  auth,
   ctrl.deleteNotification
 );
 

@@ -54,6 +54,12 @@ router.post(
   authController.forgotPassword
 );
 
+// RESET PASSWORD
+router.post(
+  "/reset-password",
+  authController.resetPassword
+);
+
 // ================= CURRENT USER =================
 
 // GET CURRENT USER

@@ -99,13 +99,6 @@ router.get(
   ctrl.getByDate
 );
 
-// ================= GET BOOKING BY ID =================
-router.get(
-  "/:id",
-  auth,
-  ctrl.getBookingById
-);
-
 // ================= GET MY BOOKINGS =================
 router.get(
   "/my",
@@ -113,6 +106,12 @@ router.get(
   ctrl.getMyBookings
 );
 
+// ================= GET BOOKING BY ID =================
+router.get(
+  "/:id",
+  auth,
+  ctrl.getBookingById
+);
 // ================= GET ALL BOOKINGS =================
 router.get(
   "/all",

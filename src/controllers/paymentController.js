@@ -26,40 +26,44 @@ const createPayment =
     try {
 
       const {
-        bookingId,
-        amount,
-        platform,
-      } = req.body;
+  bookingIds,
+  amount,
+  platform,
+} = req.body;
 
       // =====================================================
       // FIND BOOKING
       // =====================================================
 
-      const booking =
-  await Booking.findByPk(
-    bookingId,
+      const bookings =
+await Booking.findAll({
+
+  where: {
+    id: bookingIds,
+  },
+
+  include: [
     {
-      include: [
-        {
-          model: User,
-          attributes: ["name"],
-        },
-        {
-          model: Field,
-          attributes: ["name"],
-        },
-      ],
-    }
-  );
+      model: User,
+      attributes: ["name"],
+    },
+    {
+      model: Field,
+      attributes: ["name"],
+    },
+  ],
+});
 
-      if (!booking) {
+if (!bookings.length) {
 
-        return res.status(404).json({
-          success: false,
-          message:
-            "Booking not found",
-        });
-      }
+  return res.status(404).json({
+    success: false,
+    message: "Booking not found",
+  });
+}
+
+// booking đầu tiên
+const booking = bookings[0];
 
       // =====================================================
       // ALREADY PAID
@@ -383,18 +387,40 @@ const paymentWebhook =
         // UPDATE BOOKING
         // =====================================================
 
-        booking.payment_status =
-          "paid";
+        // =====================================================
+// FIND ALL BOOKINGS IN GROUP
+// =====================================================
 
-        booking.status =
-          "booked";
+const groupBookings =
+await Booking.findAll({
 
-        booking.hold_until =
-          null;
+  where: {
+    payment_group:
+      booking.payment_group,
+  },
 
-        await booking.save({
-          transaction,
-        });
+  transaction,
+});
+
+// =====================================================
+// UPDATE ALL BOOKINGS
+// =====================================================
+
+for (const b of groupBookings) {
+
+  b.payment_status =
+    "paid";
+
+  b.status =
+    "booked";
+
+  b.hold_until =
+    null;
+
+  await b.save({
+    transaction,
+  });
+}
 
         // =====================================================
         // INCREASE VOUCHER USED COUNT
@@ -404,19 +430,26 @@ const paymentWebhook =
           booking.voucher_code
         ) {
 
-          await voucherService
-  .createUserVoucher({
-    userId:
-      booking.userId,
+          for (const b of groupBookings) {
 
-    voucherCode:
-      booking.voucher_code,
+  if (b.voucher_code) {
 
-    bookingId:
-      booking.id,
+    await voucherService
+    .createUserVoucher({
 
-    transaction,
-  });
+      userId:
+        b.userId,
+
+      voucherCode:
+        b.voucher_code,
+
+      bookingId:
+        b.id,
+
+      transaction,
+    });
+  }
+}
         }
 
         // =====================================================
@@ -437,12 +470,19 @@ const paymentWebhook =
           global.emitBookedSlot
         ) {
 
-          global.emitBookedSlot(
-            booking.fieldId,
-            booking.start_time,
-            booking.booking_date,
-            booking.userId
-          );
+          for (const b of groupBookings) {
+
+  global.emitBookedSlot(
+
+    b.fieldId,
+
+    b.start_time,
+
+    b.booking_date,
+
+    b.userId
+  );
+}
         }
 
         return res.send("OK");

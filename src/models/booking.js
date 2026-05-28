@@ -100,6 +100,13 @@ end_time: {
   defaultValue: null,
 },
 
+// ================= PAYMENT GROUP =================
+payment_group: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
+
     // ================= PAYMENT NOTE =================
     payment_note: {
       type: DataTypes.TEXT,

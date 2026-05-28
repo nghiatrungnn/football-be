@@ -670,6 +670,9 @@ if (voucher_code) {
 
 const bookings = [];
 
+const paymentGroup =
+`GROUP_${Date.now()}_${req.user.id}`;
+
 // ================= APPLY VOUCHER =================
 if (voucher_code) {
 
@@ -838,6 +841,9 @@ booking.voucher_code =
         booking.payment_note =
             payment_note ||
             null;
+
+        booking.payment_group =
+            paymentGroup;
         
         booking.field_type =
             field_type || null;

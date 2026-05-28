@@ -73,11 +73,14 @@ end_time: {
 
     // ================= PAYMENT STATUS =================
     payment_status: {
-      type: DataTypes.ENUM(
-        "pending",
-        "paid",
-        "failed",
-      ),
+  type: DataTypes.ENUM(
+    "pending",
+    "paid",
+    "failed",
+    "refunded",
+    "refund_pending",
+    "cancelled"
+  ),
 
       allowNull: false,
 
@@ -90,6 +93,12 @@ end_time: {
       allowNull: true,
       defaultValue: null,
     },
+
+    payment_link_id: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
 
     // ================= PAYMENT NOTE =================
     payment_note: {
@@ -110,6 +119,7 @@ field_name: {
   defaultValue: null,
 },
 
+
     // ================= STATUS =================
     status: {
       type: DataTypes.ENUM(
@@ -124,6 +134,30 @@ field_name: {
       defaultValue: "holding",
     },
 
+
+    refund_status: {
+  type: DataTypes.STRING,
+  defaultValue: "none",
+},
+
+refund_bank_name: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
+
+refund_bank_number: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
+
+refund_bank_owner: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  defaultValue: null,
+},
+
     // ================= HOLD EXPIRE =================
     hold_until: {
       type: DataTypes.DATE,
@@ -133,6 +167,25 @@ field_name: {
 
     // ================= PRICE =================
     total_price: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+        // ================= VOUCHER =================
+    voucher_code: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+
+    discount_amount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+
+    final_amount: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
@@ -160,6 +213,7 @@ field_name: {
 
     // ================= UNIQUE SLOT =================
   }
+  
 );
 
 module.exports = Booking;

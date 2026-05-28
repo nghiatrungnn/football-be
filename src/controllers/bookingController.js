@@ -5,7 +5,11 @@
     sequelize,
   } = require("../models");
 
+  const voucherService = require("../services/voucherService");
+
   const { Op } = require("sequelize");
+
+  const axios = require("axios");
 
   // ================= GET IO =================
   const getIO = (req) => req.app.get("io");
@@ -562,7 +566,7 @@
 
   duration,
 
-  total_price,
+  voucher_code,
 
   name,
   phone,
@@ -594,7 +598,106 @@ console.log(req.body);
         });
       }
 
-      const bookings = [];
+      // ================= FIELD =================
+
+const field =
+  await Field.findByPk(field_id);
+
+if (!field) {
+
+  await transaction.rollback();
+
+  return res.status(404).json({
+    success: false,
+    message: "Field not found",
+  });
+}
+
+// ================= CALCULATE PRICE =================
+
+// ví dụ:
+// 1 slot = 30 phút
+
+const totalSlots =
+  slots.length;
+
+const totalHours =
+  totalSlots * 0.5;
+
+// giá sân / giờ
+const fieldPrice =
+  Number(field.price_per_hour || 0);
+
+// tổng giá gốc
+const total_price =
+  fieldPrice * totalHours;
+
+// ================= APPLY VOUCHER =================
+
+let discountAmount = 0;
+
+let finalAmount =
+  total_price;
+
+if (voucher_code) {
+
+  const voucherResult =
+    await voucherService.validateVoucher({
+      code: voucher_code,
+
+      amount: total_price,
+
+      transaction,
+    });
+
+  if (!voucherResult.valid) {
+
+    await transaction.rollback();
+
+    return res.status(400).json({
+      success: false,
+      message:
+        voucherResult.message,
+    });
+  }
+
+  discountAmount =
+    voucherResult.discount;
+
+  finalAmount =
+    voucherResult.finalAmount;
+}
+
+const bookings = [];
+
+// ================= APPLY VOUCHER =================
+if (voucher_code) {
+
+  const voucherResult =
+    await voucherService.validateVoucher({
+      code: voucher_code,
+
+      amount: total_price,
+    });
+
+  if (!voucherResult.valid) {
+
+    await transaction.rollback();
+
+    return res.status(400).json({
+      success: false,
+
+      message:
+        voucherResult.message,
+    });
+  }
+
+  discountAmount =
+    voucherResult.discount;
+
+  finalAmount =
+    voucherResult.finalAmount;
+}
 
       for (const slot of slots) {
 
@@ -704,7 +807,25 @@ console.log(req.body);
         booking.email = email;
 
         booking.total_price =
-    total_price || 0;
+  total_price;
+
+booking.discount_amount =
+  discountAmount;
+
+booking.final_amount =
+  finalAmount;
+
+booking.voucher_code =
+  voucher_code || null;
+
+        booking.voucher_code =
+        voucher_code || null;
+
+        booking.discount_amount =
+        discountAmount;
+
+        booking.final_amount =
+        finalAmount;
 
         booking.payment_method =
             payment_method ||
@@ -1067,25 +1188,92 @@ console.log(req.body);
     };
 
   // ================= CANCEL =================
-  const cancel = async (
-    req,
-    res
-  ) => {
-    try {
-      const booking =
-        await Booking.findByPk(
-          req.params.id
-        );
 
-      if (!booking) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Booking not found",
-        });
-      }
+const cancel = async (
+  req,
+  res
+) => {
+
+  try {
+
+    const io = getIO(req);
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id
+      );
+
+    if (!booking) {
+
+      return res.status(404).json({
+        success: false,
+        message:
+          "Booking not found",
+      });
+    }
+
+    // ================= CHECK USER =================
+
+    if (
+      booking.userId !== req.user.id
+    ) {
+
+      return res.status(403).json({
+        success: false,
+        message:
+          "Không có quyền",
+      });
+    }
+
+    // ================= ĐÃ HỦY =================
+
+    if (
+      booking.status ===
+      "cancelled"
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Đơn đã hủy",
+      });
+    }
+
+    // ================= TIME CHECK =================
+
+    const bookingDateTime =
+      new Date(
+        `${booking.booking_date}T${booking.start_time}`
+      );
+
+    const now = new Date();
+
+    const diffHours =
+      (bookingDateTime - now) /
+      (1000 * 60 * 60);
+
+    if (diffHours < 2) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Chỉ được hủy trước 2 tiếng",
+      });
+    }
+
+    // =====================================================
+    // CASH
+    // =====================================================
+
+    if (
+      booking.payment_method ===
+      "cash"
+    ) {
 
       booking.status =
+        "cancelled";
+
+      booking.payment_status =
         "cancelled";
 
       booking.hold_until =
@@ -1093,33 +1281,239 @@ console.log(req.body);
 
       await booking.save();
 
+      // mở slot realtime
+      emitSlotUpdate({
+        io,
+
+        fieldId:
+          booking.fieldId,
+
+        bookingDate:
+          booking.booking_date,
+
+        startTime:
+          booking.start_time,
+
+        status:
+          "cancelled",
+      });
+
       return res.json({
         success: true,
-        message:
-          "Booking cancelled",
-      });
-    } catch (err) {
-      console.error(
-        "❌ cancel booking error:",
-        err
-      );
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
+        message:
+          "Đã hủy sân",
       });
     }
-  };
+
+    // =====================================================
+    // PAYOS
+    // =====================================================
+
+    booking.payment_status =
+  "refund_pending";
+
+booking.refund_status =
+  "pending";
+
+// ================= BANK INFO =================
+
+booking.refund_bank_name =
+  req.body.bank_name;
+
+booking.refund_bank_number =
+  req.body.bank_number;
+
+booking.refund_bank_owner =
+  req.body.bank_owner;
+
+await booking.save();
+
+    booking.refund_status =
+      "pending";
+
+    await booking.save();
+
+    return res.json({
+      success: true,
+
+      message:
+        "Đã gửi yêu cầu hoàn tiền",
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// ================= REFUND BOOKING =================
+
+const refundBooking =
+  async (req, res) => {
+
+  try {
+
+    const io = getIO(req);
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id
+      );
+
+    if (!booking) {
+
+      return res.status(404).json({
+        success: false,
+        message:
+          "Booking not found",
+      });
+    }
+
+    // =====================================================
+// ALREADY REFUNDED
+// =====================================================
+
+if (
+  booking.payment_status ===
+  "refunded"
+) {
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "Đơn đã hoàn tiền",
+  });
+}
+
+// =====================================================
+// NOT REFUND PENDING
+// =====================================================
+
+if (
+  booking.payment_status !==
+  "refund_pending"
+) {
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "Đơn chưa yêu cầu hoàn tiền",
+  });
+}
+
+    // =====================================================
+    // PAYOS REFUND
+    // =====================================================
+
+    // =====================================================
+// CHECK PAYMENT LINK
+// =====================================================
+
+if (!booking.payment_link_id) {
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "Không tìm thấy payment link",
+  });
+}
+
+// =====================================================
+// PAYOS CANCEL PAYMENT
+// =====================================================
+
+const refundRes =
+  await axios.post(
+
+    `https://api-merchant.payos.vn/v2/payment-requests/${booking.payment_link_id}/cancel`,
+
+    {
+      cancellationReason:
+          "Khach huy san"
+    },
+
+    {
+      headers: {
+
+        "x-client-id":
+            process.env
+                .PAYOS_CLIENT_ID,
+
+        "x-api-key":
+            process.env
+                .PAYOS_API_KEY,
+      },
+    }
+);
+
+console.log(
+  "PAYOS REFUND =>",
+  refundRes.data
+);
+    booking.status =
+      "cancelled";
+
+    booking.payment_status =
+      "refunded";
+
+    booking.refund_status =
+      "done";
+
+    booking.hold_until =
+      null;
+
+    await booking.save();
+
+    // mở slot lại
+    emitSlotUpdate({
+      io,
+
+      fieldId:
+        booking.fieldId,
+
+      bookingDate:
+        booking.booking_date,
+
+      startTime:
+        booking.start_time,
+
+      status:
+        "cancelled",
+    });
+
+    return res.json({
+      success: true,
+      message:
+        "Hoàn tiền thành công",
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
   // ================= EXPORTS =================
   module.exports = {
-    holdSlot,
-    cancelHold,
-    createBooking,
-    updateBooking,
-    deleteBooking,
-    getByDate,
-    getMyBookings,
-    getAllBookings,
-    cancel,
-  };
+  holdSlot,
+  cancelHold,
+  createBooking,
+  updateBooking,
+  deleteBooking,
+  getByDate,
+  getMyBookings,
+  getAllBookings,
+  cancel,
+  refundBooking,
+};

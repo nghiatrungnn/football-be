@@ -4,6 +4,13 @@ const axios =
 const crypto =
   require("crypto");
 
+const { sequelize } =
+  require("../models");
+
+const voucherService =
+  require("../services/voucherService");
+
+  
 const {
   booking: Booking,
   user: User,
@@ -172,6 +179,17 @@ const createPayment =
       );
 
       // =====================================================
+// SAVE PAYMENT LINK ID
+// =====================================================
+
+booking.payment_link_id =
+  response.data
+    .data
+    .paymentLinkId;
+
+await booking.save();
+
+      // =====================================================
       // RETURN
       // =====================================================
 
@@ -213,6 +231,7 @@ const createPayment =
 
 const paymentWebhook =
   async (req, res) => {
+
     try {
 
       console.log(
@@ -289,87 +308,156 @@ const paymentWebhook =
       // =====================================================
 
       const orderCode =
-         data.orderCode;
+        data.orderCode;
 
       console.log(
         "ORDER CODE =>",
-          orderCode
+        orderCode
       );
 
       // =====================================================
-      // FIND BOOKING
+      // TRANSACTION
       // =====================================================
 
-      const booking =
-  await Booking.findByPk(orderCode);
+      const transaction =
+        await sequelize.transaction();
 
-      console.log(
-  "BOOKING =>",
-  booking
-);
-  
+      try {
 
-      if (!booking) {
+        // =====================================================
+        // FIND BOOKING + LOCK
+        // =====================================================
+
+        const booking =
+          await Booking.findByPk(
+            orderCode,
+            {
+              transaction,
+
+              lock:
+                transaction
+                  .LOCK
+                  .UPDATE,
+            }
+          );
 
         console.log(
-          "BOOKING NOT FOUND"
+          "BOOKING =>",
+          booking
+        );
+
+        // =====================================================
+        // BOOKING NOT FOUND
+        // =====================================================
+
+        if (!booking) {
+
+          await transaction.rollback();
+
+          console.log(
+            "BOOKING NOT FOUND"
+          );
+
+          return res.send("OK");
+        }
+
+        // =====================================================
+        // ALREADY PAID
+        // =====================================================
+
+        if (
+          booking.payment_status ===
+          "paid"
+        ) {
+
+          await transaction.rollback();
+
+          console.log(
+            "ALREADY PAID"
+          );
+
+          return res.send("OK");
+        }
+
+        // =====================================================
+        // UPDATE BOOKING
+        // =====================================================
+
+        booking.payment_status =
+          "paid";
+
+        booking.status =
+          "booked";
+
+        booking.hold_until =
+          null;
+
+        await booking.save({
+          transaction,
+        });
+
+        // =====================================================
+        // INCREASE VOUCHER USED COUNT
+        // =====================================================
+
+        if (
+          booking.voucher_code
+        ) {
+
+          await voucherService
+  .createUserVoucher({
+    userId:
+      booking.userId,
+
+    voucherCode:
+      booking.voucher_code,
+
+    bookingId:
+      booking.id,
+
+    transaction,
+  });
+        }
+
+        // =====================================================
+        // COMMIT
+        // =====================================================
+
+        await transaction.commit();
+
+        console.log(
+          "✅ PAYMENT SUCCESS"
+        );
+
+        // =====================================================
+        // REALTIME
+        // =====================================================
+
+        if (
+          global.emitBookedSlot
+        ) {
+
+          global.emitBookedSlot(
+            booking.fieldId,
+            booking.start_time,
+            booking.booking_date,
+            booking.userId
+          );
+        }
+
+        return res.send("OK");
+
+      } catch (error) {
+
+        await transaction.rollback();
+
+        console.error(
+          "PAYMENT TRANSACTION ERROR =>",
+          error
         );
 
         return res.send("OK");
       }
-
-      // =====================================================
-      // ALREADY PAID
-      // =====================================================
-
-      if (
-        booking.payment_status ===
-        "paid"
-      ) {
-
-        console.log(
-          "ALREADY PAID"
-        );
-
-        return res.send("OK");
-      }
-
-      // =====================================================
-      // UPDATE DB
-      // =====================================================
-
-      booking.payment_status =
-        "paid";
-
-      booking.status =
-        "booked";
-
-      booking.hold_until =
-        null;
-
-      await booking.save();
-
-      console.log(
-        "✅ PAYMENT SUCCESS"
-      );
-
-      // =====================================================
-      // REALTIME
-      // =====================================================
-
-      if (
-        global.emitBookedSlot
-      ) {
-
-        global.emitBookedSlot(
-          booking.fieldId,
-          booking.start_time,
-          booking.booking_date,
-          booking.userId
-        );
-      }
-
-      return res.send("OK");
 
     } catch (err) {
 

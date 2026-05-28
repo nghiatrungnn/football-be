@@ -9,6 +9,7 @@ const fieldRoutes = require("./routes/fieldRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const fieldPricingRoutes = require("./routes/fieldPricingRoutes");
 const reviewRoutes = require('./routes/reviewRoutes');
+const voucherRoutes = require("./routes/voucherRoutes");
 
 app.use(cors());
 app.use(express.json());
@@ -30,5 +31,8 @@ app.use('/api/reviews', reviewRoutes);
 // payment routes
 const paymentRoutes = require("./routes/paymentRoutes");
 app.use("/api/payments", paymentRoutes);
+
+// voucher routes
+app.use("/api/vouchers", voucherRoutes);
 
 module.exports = app;

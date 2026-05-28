@@ -5,6 +5,9 @@ const user = require("./user");
 const field = require("./field");
 const booking = require("./booking");
 const FieldPricing = require("./FieldPricing");
+const userVoucher =
+  require("./userVoucher");
+const voucher = require("./voucher");
 
 // ===============================
 // RELATIONSHIPS
@@ -57,4 +60,6 @@ module.exports = {
   field,
   booking,
   FieldPricing,
+  userVoucher,
+  voucher,
 };

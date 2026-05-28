@@ -5,12 +5,32 @@ const authController = require("../controllers/authController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
 
+const adminOnly = (
+  req,
+  res,
+  next
+) => {
+
+  if (
+    req.user.role !==
+    "admin"
+  ) {
+    return res.status(403).json({
+      message:
+        "Admin only",
+    });
+  }
+
+  next();
+};
+
 // ================= USERS =================
 
 // GET ALL USERS
 router.get(
   "/users",
   authMiddleware,
+  adminOnly,
   authController.getAllUsers
 );
 

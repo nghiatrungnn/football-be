@@ -15,7 +15,9 @@ if (!process.env.JWT_SECRET) {
 const generateToken = (user) => {
   return jwt.sign(
     {
-      id: user.id,
+      id:
+  user.id ||
+  user._id,
       role: user.role,
       email: user.email,
     },
@@ -27,14 +29,21 @@ const generateToken = (user) => {
 };
 
 // ================= FORMAT USER =================
-const formatUser = (user) => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  phone: user.phone || "",
-  role: user.role,
-  avatar: user.avatar || "",
-});
+const formatUser = (user) => {
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    name: user.name || "",
+    email: user.email || "",
+    phone: user.phone || "",
+    role: user.role || "user",
+    avatar: user.avatar || "",
+  };
+};
 
 // ================= VALIDATE EMAIL =================
 const validateEmail = (email) => {
@@ -146,6 +155,15 @@ exports.register = async (
       }
     }
 
+    if (
+  !/^[0-9]+$/.test(phone)
+) {
+  return res.status(400).json({
+    message:
+      "Phone must contain only numbers",
+  });
+}
+
     // HASH PASSWORD
     const hash =
       await bcrypt.hash(
@@ -160,7 +178,7 @@ exports.register = async (
         email,
         password: hash,
         phone,
-        role: role || "user",
+        role: "user",
       });
 
     return res.status(201).json({
@@ -369,8 +387,20 @@ exports.getMe = async (
   req,
   res
 ) => {
+
   try {
-    const user =
+
+    // ================= CHECK TOKEN =================
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Invalid token payload",
+      });
+    }
+
+    // ================= FIND USER =================
+    const currentUser =
       await User.findByPk(
         req.user.id,
         {
@@ -382,25 +412,34 @@ exports.getMe = async (
         }
       );
 
-    if (!user) {
+    // ================= USER NOT FOUND =================
+    if (!currentUser) {
       return res.status(404).json({
+        success: false,
         message:
           "User not found",
       });
     }
 
     return res.json(
-      formatUser(user)
+      formatUser(
+        currentUser
+      )
     );
+
   } catch (err) {
+
     console.error(
-      "Get me error:",
+      "GET ME ERROR:",
       err
     );
 
     return res.status(500).json({
-      message: "Server error",
-      error: err.message,
+      success: false,
+      message:
+        "Get current user failed",
+      error:
+        err.message,
     });
   }
 };
@@ -415,7 +454,12 @@ exports.updateProfile = async (
       req.body;
 
     // CHECK DATA
-    if (!name && !phone && !email && !avatar) {
+    if (
+  name === undefined &&
+  phone === undefined &&
+  email === undefined &&
+  avatar === undefined
+){
       return res.status(400).json({
         message:
           "Nothing to update",

@@ -387,6 +387,11 @@
 
       await transaction.commit();
 
+      // =====================================================
+// CASH NOTIFICATION
+// =====================================================
+
+
       let emitTime = new Date(
     booking.start_time
   );
@@ -514,7 +519,10 @@
       }
 
       await booking.destroy();
-      await cleanExpiredHold(io);
+
+// FORCE DB UPDATE
+
+await cleanExpiredHold(io);
 
       emitSlotUpdate({
         io,
@@ -575,6 +583,8 @@
   payment_method,
   transaction_code,
   payment_note,
+
+  payment_group,
 
   field_type,
   field_name,
@@ -671,6 +681,7 @@ if (voucher_code) {
 const bookings = [];
 
 const paymentGroup =
+payment_group ||
 `GROUP_${Date.now()}_${req.user.id}`;
 
 // ================= APPLY VOUCHER =================
@@ -733,23 +744,23 @@ if (voucher_code) {
 
               where: {
 
-                userId:
-                req.user.id,
+  userId:
+    req.user.id,
 
-                fieldId:
-                field_id,
+  fieldId:
+    field_id,
 
-                start_time:
-                startDateTime,
+  start_time:
+    startDateTime,
 
-                status:
-                "holding",
+  status:
+    "holding",
 
-                hold_until: {
-                  [Op.gt]:
-                  new Date(),
-                },
-              },
+  hold_until: {
+    [Op.gt]:
+      new Date(),
+  },
+},
 
               transaction,
 
@@ -803,13 +814,39 @@ if (voucher_code) {
         // INFO
         // =====================================================
 
-        booking.name = name;
+booking.name = name;
 
-        booking.phone = phone;
+booking.phone = phone;
 
-        booking.email = email;
+booking.email = email;
 
-        booking.total_price =
+booking.payment_method =
+  payment_method;
+
+booking.transaction_code =
+  transaction_code || null;
+
+booking.payment_note =
+  payment_note || null;
+
+booking.field_type =
+  field_type || field.type;
+
+booking.field_name =
+  field_name || field.name;
+
+// =====================================================
+// PAYMENT GROUP
+// =====================================================
+
+booking.payment_group =
+  paymentGroup;
+
+// =====================================================
+// PRICE
+// =====================================================
+
+booking.total_price =
   total_price;
 
 booking.discount_amount =
@@ -821,41 +858,16 @@ booking.final_amount =
 booking.voucher_code =
   voucher_code || null;
 
-        booking.voucher_code =
-        voucher_code || null;
+// =====================================================
+// SAVE
+// =====================================================
 
-        booking.discount_amount =
-        discountAmount;
+await booking.save({
+  transaction,
+});
 
-        booking.final_amount =
-        finalAmount;
-
-        booking.payment_method =
-            payment_method ||
-            "cash";
-
-        booking.transaction_code =
-            transaction_code ||
-            null;
-
-        booking.payment_note =
-            payment_note ||
-            null;
-
-        booking.payment_group =
-            paymentGroup;
-        
-        booking.field_type =
-            field_type || null;
-
-        booking.field_name =
-            field_name || null;
-
-        await booking.save({
-          transaction,
-        });
-
-        bookings.push(booking);
+// SAVE ARRAY
+bookings.push(booking);
 
         let emitTime = new Date(
     booking.start_time
@@ -894,7 +906,67 @@ booking.voucher_code =
 
       await transaction.commit();
 
-      return res.json({
+// =====================================================
+// CASH NOTIFICATION
+// =====================================================
+
+if (
+  payment_method === "cash"
+) {
+
+  const notificationService =
+    require(
+      "../services/notificationService"
+    );
+
+  for (const booking of bookings) {
+
+    await notificationService
+      .createNotification({
+
+        userId:
+          booking.userId,
+
+        title:
+          "Đặt sân thành công",
+
+        message:
+          `Bạn đã đặt sân thành công lúc ${booking.start_time}`,
+
+        type:
+          "booking",
+      });
+
+    io.to(
+      `user_${booking.userId}`
+    ).emit(
+      "new_notification",
+      {
+
+        id:
+          Date.now(),
+
+        title:
+          "Đặt sân thành công",
+
+        message:
+          `Bạn đã đặt sân thành công lúc ${booking.start_time}`,
+
+        type:
+          "booking",
+
+        isRead:
+          false,
+
+        createdAt:
+          new Date()
+              .toISOString(),
+      }
+    );
+  }
+}
+
+return res.json({
 
         success: true,
 
@@ -1040,17 +1112,27 @@ booking.voucher_code =
         booking_date,
       } = req.query;
 
-      const whereClause = {};
+      const whereClause = {
 
-      if (field_id) {
-        whereClause.fieldId =
-          field_id;
-      }
+  // ================= BỎ BOOKING ĐÃ HỦY =================
+  status: {
+    [Op.notIn]: [
+      "cancelled",
+    ],
+  },
+};
 
-      if (booking_date) {
-        whereClause.booking_date =
-          booking_date;
-      }
+if (field_id) {
+
+  whereClause.fieldId =
+      field_id;
+}
+
+if (booking_date) {
+
+  whereClause.booking_date =
+      booking_date;
+}
 
       const bookings =
         await Booking.findAll({
@@ -1510,8 +1592,70 @@ console.log(
   }
 };
 
+// ================= GET BOOKING BY ID =================
+const getBookingById =
+async (req, res) => {
+
+  try {
+
+    const booking =
+    await Booking.findByPk(
+      req.params.id,
+      {
+        include: [
+          {
+            model: Field,
+          },
+          {
+            model: User,
+            attributes: [
+              "id",
+              "name",
+              "email",
+            ],
+          },
+        ],
+      }
+    );
+
+    if (!booking) {
+
+      return res.status(404).json({
+        success: false,
+        message:
+        "Booking not found",
+      });
+    }
+
+    return res.json({
+
+      success: true,
+
+      booking:
+      formatBookingResponse(
+        booking
+      ),
+    });
+
+  } catch (err) {
+
+    console.error(
+      "❌ getBookingById error:",
+      err
+    );
+
+    return res.status(500).json({
+
+      success: false,
+
+      message:
+      err.message,
+    });
+  }
+};
+
   // ================= EXPORTS =================
-  module.exports = {
+module.exports = {
   holdSlot,
   cancelHold,
   createBooking,
@@ -1520,6 +1664,7 @@ console.log(
   getByDate,
   getMyBookings,
   getAllBookings,
+  getBookingById,
   cancel,
   refundBooking,
 };

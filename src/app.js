@@ -10,6 +10,10 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const fieldPricingRoutes = require("./routes/fieldPricingRoutes");
 const reviewRoutes = require('./routes/reviewRoutes');
 const voucherRoutes = require("./routes/voucherRoutes");
+const notificationRoutes =
+  require(
+    "./routes/notificationRoutes"
+  );
 
 app.use(cors());
 app.use(express.json());
@@ -34,5 +38,9 @@ app.use("/api/payments", paymentRoutes);
 
 // voucher routes
 app.use("/api/vouchers", voucherRoutes);
+
+// notification routes
+app.use("/api/notifications", notificationRoutes);
+
 
 module.exports = app;

@@ -13,6 +13,9 @@ const db = require("./models");
 const sequelize =
   db.sequelize;
 
+const Notification =
+  require("./models/notification");
+
 const {
   booking: Booking,
 } = db;
@@ -56,6 +59,24 @@ io.on("connection", (socket) => {
     "🔥 User connected:",
     socket.id
   );
+
+  // ================= JOIN USER =================
+socket.on(
+  "join_user",
+  (userId) => {
+
+    if (!userId) return;
+
+    socket.join(
+      `user_${userId}`
+    );
+
+    console.log(
+      `👤 USER JOINED: user_${userId}`
+    );
+
+  }
+);
 
   // ================= JOIN FIELD =================
   socket.on(

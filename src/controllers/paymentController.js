@@ -10,6 +10,14 @@ const { sequelize } =
 const voucherService =
   require("../services/voucherService");
 
+const notificationService =
+  require(
+    "../services/notificationService"
+  );
+
+  const { Op } =
+  require("sequelize");
+
   
 const {
   booking: Booking,
@@ -31,6 +39,24 @@ const createPayment =
   platform,
 } = req.body;
 
+console.log(
+  "BOOKING IDS =>",
+  bookingIds
+);
+
+if (
+  !bookingIds ||
+  !Array.isArray(bookingIds) ||
+  bookingIds.length === 0
+) {
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "bookingIds invalid",
+  });
+}
+
       // =====================================================
       // FIND BOOKING
       // =====================================================
@@ -39,7 +65,11 @@ const createPayment =
 await Booking.findAll({
 
   where: {
-    id: bookingIds,
+
+    id: {
+      [Op.in]:
+        bookingIds,
+    },
   },
 
   include: [
@@ -65,6 +95,22 @@ if (!bookings.length) {
 // booking đầu tiên
 const booking = bookings[0];
 
+// =====================================================
+// CHECK PAYMENT GROUP
+// =====================================================
+
+const paymentGroup =
+  booking.payment_group;
+
+if (!paymentGroup) {
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "payment_group missing",
+  });
+}
+
       // =====================================================
       // ALREADY PAID
       // =====================================================
@@ -87,20 +133,23 @@ const booking = bookings[0];
 
       const orderCode = booking.id;
 
-      // =====================================================
-      // SAVE DB
-      // =====================================================
+     // =====================================================
+// UPDATE ALL BOOKINGS IN GROUP
+// =====================================================
 
-      booking.transaction_code =
-        orderCode.toString();
+for (const b of bookings) {
 
-      booking.payment_status =
-        "pending";
+  b.transaction_code =
+    orderCode.toString();
 
-      booking.status =
-        "holding";
+  b.payment_status =
+    "pending";
 
-      await booking.save();
+  b.status =
+    "holding";
+
+  await b.save();
+}
 
       // =====================================================
       // RETURN URL
@@ -182,16 +231,19 @@ const booking = bookings[0];
         response.data
       );
 
-      // =====================================================
-// SAVE PAYMENT LINK ID
+// =====================================================
+// SAVE PAYMENT LINK ID FOR ALL BOOKINGS
 // =====================================================
 
-booking.payment_link_id =
-  response.data
-    .data
-    .paymentLinkId;
+for (const b of bookings) {
 
-await booking.save();
+  b.payment_link_id =
+    response.data
+      .data
+      .paymentLinkId;
+
+  await b.save();
+}
 
       // =====================================================
       // RETURN
@@ -402,11 +454,26 @@ await Booking.findAll({
   transaction,
 });
 
+console.log(
+  "GROUP BOOKINGS =>",
+  groupBookings.map((b) => ({
+    id: b.id,
+    payment_group:
+      b.payment_group,
+    status: b.status,
+  })),
+);
+
 // =====================================================
 // UPDATE ALL BOOKINGS
 // =====================================================
 
 for (const b of groupBookings) {
+
+  console.log(
+  "UPDATE BOOKING =>",
+  b.id
+);
 
   b.payment_status =
     "paid";
@@ -463,14 +530,71 @@ for (const b of groupBookings) {
         );
 
         // =====================================================
+// CREATE NOTIFICATION
+// =====================================================
+
+for (const b of groupBookings) {
+
+  await notificationService
+    .createNotification({
+
+      userId:
+        b.userId,
+
+      title:
+        "Thanh toán thành công",
+
+      message:
+        `Bạn đã đặt sân thành công lúc ${b.start_time}`,
+
+      type:
+        "booking",
+    });
+}
+
+        // =====================================================
         // REALTIME
         // =====================================================
+
+// =====================================================
+// REALTIME NOTIFICATION
+// =====================================================
+
+const io =
+  req.app.get("io");
+
+for (const b of groupBookings) {
+
+  io.to(
+    `user_${b.userId}`
+  ).emit(
+    "new_notification",
+    {
+
+      title:
+        "Thanh toán thành công",
+
+      message:
+        `Bạn đã đặt sân thành công lúc ${b.start_time}`,
+
+      type:
+        "booking",
+    }
+  );
+}
 
         if (
           global.emitBookedSlot
         ) {
 
           for (const b of groupBookings) {
+
+            console.log(
+  "EMIT SLOT =>",
+  b.id,
+  b.start_time,
+  b.booking_date,
+);
 
   global.emitBookedSlot(
 

@@ -387,11 +387,6 @@
 
       await transaction.commit();
 
-      // =====================================================
-// CASH NOTIFICATION
-// =====================================================
-
-
       let emitTime = new Date(
     booking.start_time
   );
@@ -1006,50 +1001,248 @@ return res.json({
 
   // ================= UPDATE BOOKING =================
   const updateBooking = async (
-    req,
-    res
-  ) => {
-    try {
-      const booking =
-        await Booking.findByPk(
-          req.params.id
-        );
+  req,
+  res
+) => {
 
-      if (!booking) {
-        return res.status(404).json({
+  const transaction =
+      await sequelize.transaction();
+
+  try {
+
+    const io = getIO(req);
+
+    const booking =
+        await Booking.findByPk(
+      req.params.id
+    );
+
+    if (!booking) {
+
+      await transaction.rollback();
+
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // ================= DATA =================
+
+    const {
+  name,
+  phone,
+  email,
+  status,
+  payment_method,
+  total_price,
+  slots,
+  fieldId,
+} = req.body;
+
+    // ================= UPDATE INFO =================
+
+    booking.name =
+        name ?? booking.name;
+
+    booking.phone =
+        phone ?? booking.phone;
+
+    booking.email =
+        email ?? booking.email;
+
+    booking.status =
+        status ?? booking.status;
+
+    booking.payment_method =
+        payment_method ??
+        booking.payment_method;
+
+    booking.total_price =
+        total_price ??
+        booking.total_price;
+
+    booking.fieldId =
+        fieldId ??
+        booking.fieldId;
+
+    await booking.save({
+      transaction,
+    });
+
+    // =====================================================
+    // UPDATE SLOT
+    // =====================================================
+
+    if (
+        slots &&
+        Array.isArray(slots) &&
+        slots.length > 0
+    ) {
+
+      const slot =
+          slots[0];
+
+      const start =
+          slot.start.length === 5
+              ? `${slot.start}:00`
+              : slot.start;
+
+      const end =
+          slot.end.length === 5
+              ? `${slot.end}:00`
+              : slot.end;
+
+      // ================= CHECK CONFLICT =================
+
+      const conflict =
+          await Booking.findOne({
+
+        where: {
+
+          id: {
+            [Op.ne]:
+            booking.id,
+          },
+
+          fieldId:
+fieldId ??
+booking.fieldId,
+
+          booking_date:
+          slot.date,
+
+          status: {
+            [Op.in]: [
+              "holding",
+              "booked",
+            ],
+          },
+
+          [Op.and]: [
+
+            sequelize.where(
+              sequelize.col(
+                  "start_time"
+              ),
+              "<",
+              end
+            ),
+
+            sequelize.where(
+              sequelize.col(
+                  "end_time"
+              ),
+              ">",
+              start
+            ),
+          ],
+        },
+
+        transaction,
+      });
+
+      if (conflict) {
+
+        await transaction.rollback();
+
+        return res.status(400).json({
           success: false,
           message:
-            "Booking not found",
+          "Khung giờ bị trùng",
         });
       }
 
-      await booking.update(
-        req.body
-      );
+      // ================= EMIT OLD SLOT =================
 
-      return res.json({
-        success: true,
-        message:
-          "Booking updated successfully",
+      emitSlotUpdate({
 
-        booking:
-          formatBookingResponse(
-            booking
-          ),
+        io,
+
+        fieldId:
+        booking.fieldId,
+
+        bookingDate:
+        booking.booking_date,
+
+        startTime:
+        booking.start_time,
+
+        status:
+        "cancelled",
       });
-    } catch (err) {
-      console.error(
-        "❌ updateBooking error:",
-        err
-      );
 
-      return res.status(500).json({
-        success: false,
-        message: err.message,
+      // ================= UPDATE SLOT =================
+
+      booking.fieldId =
+    fieldId ??
+    booking.fieldId;
+
+booking.booking_date =
+    slot.date;
+
+booking.start_time =
+    start;
+
+booking.end_time =
+    end;
+
+      await booking.save({
+        transaction,
+      });
+
+      // ================= EMIT NEW SLOT =================
+
+      emitSlotUpdate({
+
+        io,
+
+        fieldId:
+        booking.fieldId,
+
+        bookingDate:
+        booking.booking_date,
+
+        startTime:
+        booking.start_time,
+
+        status:
+        booking.status,
       });
     }
-  };
 
+    await transaction.commit();
+
+    return res.json({
+
+      success: true,
+
+      message:
+      "Booking updated successfully",
+
+      booking:
+      formatBookingResponse(
+          booking
+      ),
+    });
+
+  } catch (err) {
+
+    try {
+      await transaction.rollback();
+    } catch (_) {}
+
+    console.error(
+        "❌ updateBooking error:",
+        err
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
   // ================= DELETE BOOKING =================
   const deleteBooking = async (
     req,

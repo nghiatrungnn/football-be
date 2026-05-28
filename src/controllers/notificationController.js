@@ -3,6 +3,64 @@ const notificationService =
     "../services/notificationService"
   );
 
+// ================= CREATE =================
+
+const createNotification =
+  async (req, res) => {
+
+    try {
+
+      const notification =
+        await notificationService
+          .createNotification(
+            req.body
+          );
+
+      res.status(201).json({
+        success: true,
+        notification,
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
+
+  };
+
+// ================= GET ALL =================
+
+const getAllNotifications =
+  async (req, res) => {
+
+    try {
+
+      const notifications =
+        await notificationService
+          .getAllNotifications();
+
+      res.json({
+        success: true,
+        notifications,
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
+
+  };
+
+// ================= GET MY =================
+
 const getMyNotifications =
   async (req, res) => {
 
@@ -30,6 +88,89 @@ const getMyNotifications =
 
   };
 
+// ================= GET BY ID =================
+
+const getNotificationById =
+  async (req, res) => {
+
+    try {
+
+      const notification =
+        await notificationService
+          .getNotificationById(
+            req.params.id
+          );
+
+      if (!notification) {
+
+        return res.status(404)
+          .json({
+            success: false,
+            message:
+              "Notification not found",
+          });
+
+      }
+
+      res.json({
+        success: true,
+        notification,
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
+
+  };
+
+// ================= UPDATE =================
+
+const updateNotification =
+  async (req, res) => {
+
+    try {
+
+      const notification =
+        await notificationService
+          .updateNotification(
+            req.params.id,
+            req.body
+          );
+
+      if (!notification) {
+
+        return res.status(404)
+          .json({
+            success: false,
+            message:
+              "Notification not found",
+          });
+
+      }
+
+      res.json({
+        success: true,
+        notification,
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
+
+  };
+
+// ================= READ =================
+
 const markAsRead =
   async (req, res) => {
 
@@ -43,11 +184,14 @@ const markAsRead =
           );
 
       if (!result) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Notification not found",
-        });
+
+        return res.status(404)
+          .json({
+            success: false,
+            message:
+              "Notification not found",
+          });
+
       }
 
       res.json({
@@ -65,7 +209,53 @@ const markAsRead =
 
   };
 
+// ================= DELETE =================
+
+const deleteNotification =
+  async (req, res) => {
+
+    try {
+
+      const result =
+        await notificationService
+          .deleteNotification(
+            req.params.id
+          );
+
+      if (!result) {
+
+        return res.status(404)
+          .json({
+            success: false,
+            message:
+              "Notification not found",
+          });
+
+      }
+
+      res.json({
+        success: true,
+        message:
+          "Delete notification success",
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
+
+  };
+
 module.exports = {
+  createNotification,
+  getAllNotifications,
   getMyNotifications,
+  getNotificationById,
+  updateNotification,
   markAsRead,
+  deleteNotification,
 };

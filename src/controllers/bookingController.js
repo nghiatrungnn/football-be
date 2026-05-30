@@ -184,59 +184,54 @@
   };
 
   // ================= CLEAN EXPIRED BOOKINGS =================
-  const cleanExpiredBookings =
-    async (io = null) => {
-      try {
-        const now = new Date();
+//   const cleanExpiredBookings = async (io = null) => {
+//   try {
 
-        const expiredBookings =
-          await Booking.findAll({
-            where: {
-              status: {
-                [Op.in]: [
-                  "booked",
-              ],
-            },
+//     const bookings = await Booking.findAll({
+//       where: {
+//         status: "booked",
+//       },
+//     });
 
-  end_time: {
-    [Op.lt]: now,
-  },
-            },
-          });
+//     const now = Date.now();
 
-        for (const b of expiredBookings) {
-          b.status = "completed";
+//     for (const b of bookings) {
 
-          await b.save();
+//       const bookingEnd = new Date(
+//         `${b.booking_date}T${b.end_time}`
+//       ).getTime();
 
-          if (io) {
-            emitSlotUpdate({
-              io,
-              fieldId: b.fieldId,
-              bookingDate:
-                b.booking_date,
-              startTime:
-                b.start_time,
-              status:
-              "completed",
-            });
-          }
-        }
+//       // Chưa tới giờ kết thúc sân
+//       if (bookingEnd > now) {
+//         continue;
+//       }
 
-        if (
-          expiredBookings.length > 0
-        ) {
-          console.log(
-            `✅ Cleared ${expiredBookings.length} expired bookings`
-          );
-        }
-      } catch (err) {
-        console.error(
-          "❌ cleanExpiredBookings error:",
-          err
-        );
-      }
-    };
+//       b.status = "completed";
+
+//       await b.save();
+
+//       if (io) {
+//         emitSlotUpdate({
+//           io,
+//           fieldId: b.fieldId,
+//           bookingDate: b.booking_date,
+//           startTime: b.start_time,
+//           status: "completed",
+//         });
+//       }
+
+//       console.log(
+//         `✅ Booking ${b.id} completed`
+//       );
+//     }
+
+//   } catch (err) {
+//     console.error(
+//       "❌ cleanExpiredBookings error:",
+//       err
+//     );
+//   }
+// };
 
   // ================= HOLD SLOT =================
   const holdSlot = async (
@@ -776,15 +771,12 @@ if (voucher_code) {
   // CASH
   // =====================================================
 
-  if (payment_method === "cash") {
+if (payment_method === "cash") {
 
-  // Đặt sân thành công
-  booking.status = "booked";
+  booking.status = "holding";
 
-  // Nhưng chưa thanh toán
   booking.payment_status = "pending";
 
-  // Không giữ chỗ nữa
   booking.hold_until = null;
 }
 
@@ -1030,10 +1022,10 @@ return res.json({
         phone ?? booking.phone;
 
     booking.email =
-        email ?? booking.email;
+    email ?? booking.email;
 
-    booking.status =
-        status ?? booking.status;
+booking.status =
+    status ?? booking.status;
 
     booking.payment_method =
         payment_method ??
@@ -1278,8 +1270,6 @@ booking.end_time =
       const io = getIO(req);
 
       await cleanExpiredHold(io);
-
-      await cleanExpiredBookings(io);
 
       const {
         field_id,

@@ -19,25 +19,31 @@ const userVoucher =
       },
 
       userId: {
-        type:
-          DataTypes.INTEGER,
-
-        allowNull: false,
-      },
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  references: {
+    model: "users",
+    key: "id",
+  },
+},
 
       voucherId: {
-        type:
-          DataTypes.INTEGER,
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  references: {
+    model: "vouchers",
+    key: "id",
+  },
+},
 
-        allowNull: false,
-      },
-
-      bookingId: {
-        type:
-          DataTypes.INTEGER,
-
-        allowNull: false,
-      },
+     bookingId: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  references: {
+    model: "bookings",
+    key: "id",
+  },
+},
 
       usedAt: {
         type:

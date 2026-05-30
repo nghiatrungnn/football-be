@@ -15,9 +15,13 @@ const Notification =
       },
 
       userId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  references: {
+    model: "users",
+    key: "id",
+  },
+},
 
       title: {
         type: DataTypes.STRING,

@@ -14,14 +14,22 @@ const Review =
       },
 
       fieldId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  references: {
+    model: "fields",
+    key: "id",
+  },
+},
 
       userId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-      },
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  references: {
+    model: "users",
+    key: "id",
+  },
+},
 
       rating: {
         type: DataTypes.INTEGER,

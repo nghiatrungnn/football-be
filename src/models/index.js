@@ -8,6 +8,8 @@ const FieldPricing = require("./FieldPricing");
 const userVoucher =
   require("./userVoucher");
 const voucher = require("./voucher");
+const Review = require("./review");
+const Notification = require("./notification");
 
 // ===============================
 // RELATIONSHIPS
@@ -51,6 +53,84 @@ FieldPricing.belongsTo(field, {
 });
 
 // ===============================
+// User - UserVoucher
+// ===============================
+
+user.hasMany(userVoucher, {
+  foreignKey: "userId",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+userVoucher.belongsTo(user, {
+  foreignKey: "userId",
+});
+
+// ===============================
+// Voucher - UserVoucher
+// ===============================
+
+voucher.hasMany(userVoucher, {
+  foreignKey: "voucherId",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+userVoucher.belongsTo(voucher, {
+  foreignKey: "voucherId",
+});
+
+// ===============================
+// Booking - UserVoucher
+// ===============================
+
+booking.hasMany(userVoucher, {
+  foreignKey: "bookingId",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+userVoucher.belongsTo(booking, {
+  foreignKey: "bookingId",
+});
+
+// ===============================
+// User - Review
+// ===============================
+
+user.hasMany(Review, {
+  foreignKey: "userId",
+});
+
+Review.belongsTo(user, {
+  foreignKey: "userId",
+});
+
+// ===============================
+// Field - Review
+// ===============================
+
+field.hasMany(Review, {
+  foreignKey: "fieldId",
+});
+
+Review.belongsTo(field, {
+  foreignKey: "fieldId",
+});
+
+// ===============================
+// User - Notification
+// ===============================
+
+user.hasMany(Notification, {
+  foreignKey: "userId",
+});
+
+Notification.belongsTo(user, {
+  foreignKey: "userId",
+});
+
+// ===============================
 // EXPORT
 // ===============================
 
@@ -62,4 +142,6 @@ module.exports = {
   FieldPricing,
   userVoucher,
   voucher,
+  Review,
+  Notification,
 };

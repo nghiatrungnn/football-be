@@ -615,9 +615,6 @@ if (!field) {
 
 // ================= CALCULATE PRICE =================
 
-// ví dụ:
-// 1 slot = 30 phút
-
 const totalSlots =
   slots.length;
 
@@ -890,6 +887,23 @@ bookings.push(booking);
     );
   }
       }
+
+if (voucher_code) {
+
+  await voucherService
+    .increaseVoucherUsedCount({
+      voucherCode: voucher_code,
+      transaction,
+    });
+
+  await voucherService
+    .createUserVoucher({
+      userId: req.user.id,
+      voucherCode: voucher_code,
+      bookingId: bookings[0].id,
+      transaction,
+    });
+}
 
       await transaction.commit();
 

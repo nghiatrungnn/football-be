@@ -109,7 +109,6 @@ router.get(
 // ================= GET ALL BOOKINGS =================
 router.get(
   "/all",
-  auth,
   ctrl.getAllBookings
 );
 

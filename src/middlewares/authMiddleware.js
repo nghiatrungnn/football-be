@@ -54,10 +54,14 @@ module.exports = (
 
   } catch (err) {
 
-    console.error(
-      "AUTH ERROR:",
-      err.message
-    );
+  console.error("AUTH ERROR:", err);
+
+  return res.status(401).json({
+    success: false,
+    message: err.message,
+    error: err.name,
+  });
+}
 
     // ================= TOKEN EXPIRED =================
     if (
@@ -77,4 +81,3 @@ module.exports = (
         "Invalid token",
     });
   }
-};

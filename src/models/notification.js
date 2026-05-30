@@ -14,31 +14,50 @@ const Notification =
         primaryKey: true,
       },
 
-      // USER NHẬN
       userId: {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
 
-      // TIÊU ĐỀ
       title: {
         type: DataTypes.STRING,
         allowNull: false,
       },
 
-      // NỘI DUNG
       message: {
         type: DataTypes.TEXT,
         allowNull: false,
       },
 
-      // LOẠI
+      // booking
+      // payment
+      // refund
+      // review
+      // promotion
+      // system
       type: {
         type: DataTypes.STRING,
         defaultValue: "system",
       },
 
-      // ĐÃ ĐỌC CHƯA
+      // icon hiển thị trên app
+      icon: {
+        type: DataTypes.STRING,
+        defaultValue: "notifications",
+      },
+
+      // route mở khi click
+      route: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+
+      // id đơn đặt sân / giao dịch...
+      referenceId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+
       isRead: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,

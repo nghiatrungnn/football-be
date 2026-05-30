@@ -1,5 +1,6 @@
 const Review = require("../models/review");
 const User = require("../models/user");
+const Field = require("../models/field");
 
 // ================= CREATE REVIEW =================
 exports.createReview = async (req, res) => {
@@ -75,36 +76,56 @@ exports.getReviews = async (req, res) => {
 // ================= GET ALL REVIEW =================
 exports.getAllReviews = async (req, res) => {
   try {
+
     const reviews = await Review.findAll({
       order: [["createdAt", "DESC"]],
     });
 
     const data = await Promise.all(
       reviews.map(async (item) => {
-        const user = await User.findByPk(
-          item.userId
-        );
+
+        const user =
+          await User.findByPk(
+            item.userId
+          );
+
+        const field =
+          await Field.findByPk(
+            item.fieldId
+          );
 
         return {
           ...item.toJSON(),
 
           user: {
-            name:
-              user?.name ?? "User",
+            id: user?.id,
+            name: user?.name ?? "User",
+            avatar: user?.avatar ?? "",
+          },
 
-            avatar:
-              user?.avatar ?? "",
+          field: {
+            id: field?.id,
+            name:
+              field?.name ??
+              "Sân bóng",
+            address:
+              field?.address ?? "",
+            image:
+              field?.image ?? "",
           },
         };
       })
     );
 
     res.json(data);
+
   } catch (e) {
+
     console.log(e);
 
     res.status(500).json({
-      message: "Lỗi lấy tất cả review",
+      message:
+        "Lỗi lấy tất cả review",
     });
   }
 };

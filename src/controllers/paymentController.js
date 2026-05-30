@@ -565,21 +565,28 @@ const io =
 
 for (const b of groupBookings) {
 
+  const notification =
+    await notificationService
+      .createNotification({
+
+        userId:
+          b.userId,
+
+        title:
+          "Thanh toán thành công",
+
+        message:
+          `Bạn đã đặt sân thành công lúc ${b.start_time}`,
+
+        type:
+          "booking",
+      });
+
   io.to(
     `user_${b.userId}`
   ).emit(
     "new_notification",
-    {
-
-      title:
-        "Thanh toán thành công",
-
-      message:
-        `Bạn đã đặt sân thành công lúc ${b.start_time}`,
-
-      type:
-        "booking",
-    }
+    notification
   );
 }
 

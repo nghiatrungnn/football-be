@@ -33,6 +33,30 @@ router.get(
   ctrl.getMyNotifications
 );
 
+// ================= READ ALL =================
+
+router.put(
+  "/read-all",
+  auth,
+  ctrl.markAllAsRead
+);
+
+// ================= READ =================
+
+router.put(
+  "/read/:id",
+  auth,
+  ctrl.markAsRead
+);
+
+// ================= DELETE ALL =================
+
+router.delete(
+  "/delete-all",
+  auth,
+  ctrl.deleteAllNotifications
+);
+
 // ================= GET BY ID =================
 
 router.get(
@@ -47,14 +71,6 @@ router.put(
   "/:id",
   auth,
   ctrl.updateNotification
-);
-
-// ================= READ =================
-
-router.put(
-  "/read/:id",
-  auth,
-  ctrl.markAsRead
 );
 
 // ================= DELETE =================

@@ -482,6 +482,27 @@ global.emitAvailableSlot = (
 };
 
 // =====================================================
+// USER NOTIFICATION
+// =====================================================
+
+global.emitNotification = (
+  userId,
+  notification,
+) => {
+
+  io.to(
+    `user_${userId}`
+  ).emit(
+    "new_notification",
+    notification,
+  );
+
+  console.log(
+    `🔔 SEND NOTIFICATION TO user_${userId}`
+  );
+};
+
+// =====================================================
 // START SERVER
 // =====================================================
 

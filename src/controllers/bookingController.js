@@ -916,6 +916,7 @@ if (
 
   for (const booking of bookings) {
 
+  const notification =
     await notificationService
       .createNotification({
 
@@ -932,33 +933,13 @@ if (
           "booking",
       });
 
-    io.to(
-      `user_${booking.userId}`
-    ).emit(
-      "new_notification",
-      {
-
-        id:
-          Date.now(),
-
-        title:
-          "Đặt sân thành công",
-
-        message:
-          `Bạn đã đặt sân thành công lúc ${booking.start_time}`,
-
-        type:
-          "booking",
-
-        isRead:
-          false,
-
-        createdAt:
-          new Date()
-              .toISOString(),
-      }
-    );
-  }
+  io.to(
+    `user_${booking.userId}`
+  ).emit(
+    "new_notification",
+    notification
+  );
+}
 }
 
 return res.json({

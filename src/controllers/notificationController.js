@@ -206,8 +206,36 @@ const markAsRead =
       });
 
     }
-
   };
+
+// ================= READ ALL =================
+
+const markAllAsRead =
+  async (req, res) => {
+
+    try {
+
+      const result =
+        await notificationService
+          .markAllAsRead(
+            req.user.id
+          );
+
+      res.json({
+        success: true,
+        updated: result,
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
+
+  };  
 
 // ================= DELETE =================
 
@@ -218,10 +246,10 @@ const deleteNotification =
 
       const result =
         await notificationService
-          .deleteNotification(
-            req.params.id
-          );
-
+  .deleteNotification(
+    req.params.id,
+    req.user.id
+  );
       if (!result) {
 
         return res.status(404)
@@ -247,6 +275,34 @@ const deleteNotification =
       });
 
     }
+  };
+
+  // ================= DELETE ALL =================
+
+const deleteAllNotifications =
+  async (req, res) => {
+
+    try {
+
+      const result =
+        await notificationService
+          .deleteAllNotifications(
+            req.user.id
+          );
+
+      res.json({
+        success: true,
+        deleted: result,
+      });
+
+    } catch (error) {
+
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+
+    }
 
   };
 
@@ -256,6 +312,10 @@ module.exports = {
   getMyNotifications,
   getNotificationById,
   updateNotification,
+
   markAsRead,
+  markAllAsRead,
+
   deleteNotification,
+  deleteAllNotifications,
 };

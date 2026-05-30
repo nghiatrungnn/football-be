@@ -8,14 +8,28 @@ const createNotification =
     userId,
     title,
     message,
+
     type = "system",
+
+    icon = "notifications",
+
+    route = null,
+
+    referenceId = null,
   }) => {
 
     return await Notification.create({
       userId,
       title,
       message,
+
       type,
+
+      icon,
+
+      route,
+
+      referenceId,
     });
 
   };
@@ -110,13 +124,46 @@ const markAsRead =
 
   };
 
+// ================= READ ALL =================
+
+const markAllAsRead =
+  async (userId) => {
+
+    const result =
+      await Notification.update(
+
+        {
+          isRead: true,
+        },
+
+        {
+          where: {
+            userId,
+            isRead: false,
+          },
+        }
+      );
+
+    return result;
+  };
+
 // ================= DELETE =================
 
 const deleteNotification =
-  async (id) => {
+  async (
+    id,
+    userId,
+  ) => {
 
     const notification =
-      await Notification.findByPk(id);
+      await Notification.findOne({
+
+        where: {
+          id,
+          userId,
+        },
+
+      });
 
     if (!notification) {
       return null;
@@ -128,12 +175,40 @@ const deleteNotification =
 
   };
 
+  // ================= DELETE ALL =================
+
+const deleteAllNotifications =
+  async (userId) => {
+
+    const result =
+      await Notification.destroy({
+
+        where: {
+          userId,
+        },
+
+      });
+
+    return result;
+
+  };
+
 module.exports = {
   createNotification,
+
   getAllNotifications,
+
   getMyNotifications,
+
   getNotificationById,
+
   updateNotification,
+
   markAsRead,
+
+  markAllAsRead,
+
   deleteNotification,
+
+  deleteAllNotifications,
 };

@@ -255,12 +255,24 @@ exports.login = async (
       });
     }
 
-    return res.json({
-      message: "Login success",
-      token:
-        generateToken(user),
-      user: formatUser(user),
-    });
+    const token =
+  generateToken(user);
+
+console.log(
+  "LOGIN SECRET =",
+  process.env.JWT_SECRET
+);
+
+console.log(
+  "TOKEN CREATED =",
+  token
+);
+
+return res.json({
+  message: "Login success",
+  token,
+  user: formatUser(user),
+});
   } catch (error) {
     console.error(
       "Login error:",

@@ -622,7 +622,7 @@ const totalSlots =
   slots.length;
 
 const totalHours =
-  totalSlots * 0.5;
+  totalSlots;
 
 // giá sân / giờ
 const fieldPrice =

@@ -1025,6 +1025,7 @@ return res.json({
   phone,
   email,
   status,
+  payment_status,
   payment_method,
   total_price,
   slots,
@@ -1045,6 +1046,10 @@ return res.json({
 booking.status =
     status ?? booking.status;
 
+    booking.payment_status =
+    payment_status ??
+    booking.payment_status;
+
     booking.payment_method =
         payment_method ??
         booking.payment_method;
@@ -1057,9 +1062,28 @@ booking.status =
         fieldId ??
         booking.fieldId;
 
-    await booking.save({
+    if (payment_status) {
+
+  await Booking.update(
+    {
+      payment_status,
+    },
+    {
+      where: {
+        payment_group:
+          booking.payment_group,
+      },
       transaction,
-    });
+    }
+  );
+
+} else {
+
+  await booking.save({
+    transaction,
+  });
+
+}
 
     // =====================================================
     // UPDATE SLOT
@@ -1435,14 +1459,46 @@ if (booking_date) {
               ],
             ],
           });
+const grouped = {};
 
-        return res.json({
+bookings.forEach((b) => {
+
+  const booking =
+    formatBookingResponse(b);
+
+  const key =
+    booking.payment_group ||
+    booking.id;
+
+  if (!grouped[key]) {
+
+    grouped[key] = {
+      ...booking,
+      slots: [],
+    };
+  }
+
+  grouped[key].slots.push({
+    date:
+      booking.booking_date,
+
+    start:
+      booking.start_time,
+
+    end:
+      booking.end_time,
+
+    price:
+      booking.final_amount ||
+      booking.total_price ||
+      0,
+  });
+});
+
+return res.json({
   success: true,
-
   bookings:
-    bookings.map((b) =>
-      formatBookingResponse(b)
-    ),
+    Object.values(grouped),
 });
       } catch (err) {
         console.error(

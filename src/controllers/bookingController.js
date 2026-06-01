@@ -183,56 +183,6 @@
     }
   };
 
-  // ================= CLEAN EXPIRED BOOKINGS =================
-//   const cleanExpiredBookings = async (io = null) => {
-//   try {
-
-//     const bookings = await Booking.findAll({
-//       where: {
-//         status: "booked",
-//       },
-//     });
-
-//     const now = Date.now();
-
-//     for (const b of bookings) {
-
-//       const bookingEnd = new Date(
-//         `${b.booking_date}T${b.end_time}`
-//       ).getTime();
-
-//       // Chưa tới giờ kết thúc sân
-//       if (bookingEnd > now) {
-//         continue;
-//       }
-
-//       b.status = "completed";
-
-//       await b.save();
-
-//       if (io) {
-//         emitSlotUpdate({
-//           io,
-//           fieldId: b.fieldId,
-//           bookingDate: b.booking_date,
-//           startTime: b.start_time,
-//           status: "completed",
-//         });
-//       }
-
-//       console.log(
-//         `✅ Booking ${b.id} completed`
-//       );
-//     }
-
-//   } catch (err) {
-//     console.error(
-//       "❌ cleanExpiredBookings error:",
-//       err
-//     );
-//   }
-// };
-
   // ================= HOLD SLOT =================
   const holdSlot = async (
     req,
@@ -391,23 +341,24 @@
   ) {
 
     emitSlotUpdate({
-      io,
 
-      fieldId: field_id,
+  io,
 
-      bookingDate:
-        booking_date,
+  fieldId: field_id,
 
-      startTime:
-        emitTime,
+  bookingDate:
+    booking_date,
 
-      status: "holding",
+  startTime:
+    emitTime,
 
-      userId:
-        req.user.id,
+  status: "holding",
 
-      holdUntil,
-    });
+  userId:
+    req.user.id,
+
+  holdUntil,
+});
 
     emitTime = new Date(
       emitTime.getTime() +
@@ -476,6 +427,8 @@
       userId: req.user.id,
 
       fieldId: field_id,
+
+      booking_date,
 
       status: "holding",
 
@@ -558,9 +511,8 @@ await cleanExpiredHold(io);
 
       const {
   field_id,
-  booking_date,
 
-  slots,
+  bookings,
 
   duration,
 
@@ -583,12 +535,11 @@ await cleanExpiredHold(io);
 console.log(req.body);
 
       if (
-          !field_id ||
-          !booking_date ||
-          !slots ||
-          !Array.isArray(slots) ||
-          slots.length === 0
-      ) {
+  !field_id ||
+  !bookings ||
+  !Array.isArray(bookings) ||
+  bookings.length === 0
+) {
 
         await transaction.rollback();
 
@@ -616,9 +567,10 @@ if (!field) {
 // ================= CALCULATE PRICE =================
 
 const totalSlots =
-  slots.length;
+  bookings.length;
 
 const totalHours =
+  (duration / 60) *
   totalSlots;
 
 // giá sân / giờ
@@ -665,49 +617,27 @@ if (voucher_code) {
     voucherResult.finalAmount;
 }
 
-const bookings = [];
+const createdBookings = [];
 
 const paymentGroup =
 payment_group ||
 `GROUP_${Date.now()}_${req.user.id}`;
 
-// ================= APPLY VOUCHER =================
-if (voucher_code) {
+      for (const item of bookings) {
 
-  const voucherResult =
-    await voucherService.validateVoucher({
-      code: voucher_code,
+  const bookingDate =
+    item.date;
 
-      amount: total_price,
-    });
+  const slot =
+    item.slot;
 
-  if (!voucherResult.valid) {
+  const fixedTime =
+    slot.toString().length === 5
+      ? `${slot}:00`
+      : slot.toString();
 
-    await transaction.rollback();
-
-    return res.status(400).json({
-      success: false,
-
-      message:
-        voucherResult.message,
-    });
-  }
-
-  discountAmount =
-    voucherResult.discount;
-
-  finalAmount =
-    voucherResult.finalAmount;
-}
-
-      for (const slot of slots) {
-
-        const fixedTime =
-      slot.toString().length === 5
-          ? `${slot}:00`
-          : slot.toString();
-
-        const startDateTime = fixedTime;
+  const startDateTime =
+    fixedTime;
 
         const [h, m, s] =
     fixedTime.split(":").map(Number);
@@ -727,31 +657,33 @@ if (voucher_code) {
         // ================= FIND HOLD =================
 
         const booking =
-            await Booking.findOne({
+ await Booking.findOne({
 
-              where: {
+   where: {
 
-  userId:
-    req.user.id,
+     userId:
+       req.user.id,
 
-  fieldId:
-    field_id,
+     fieldId:
+       field_id,
 
-  start_time:
-    startDateTime,
+     booking_date:
+       bookingDate,
 
-  status:
-    "holding",
+     start_time:
+       startDateTime,
 
-  hold_until: {
-    [Op.gt]:
-      new Date(),
-  },
-},
+     status:
+       "holding",
 
-              transaction,
+     hold_until: {
+       [Op.gt]:
+         new Date(),
+     },
+   },
 
-            });
+   transaction,
+ });
 
         if (!booking) {
 
@@ -760,7 +692,7 @@ if (voucher_code) {
           return res.status(404).json({
             success: false,
             message:
-            `Slot ${slot} not held`,
+ `Slot ${slot} ngày ${bookingDate} chưa được giữ`,
           });
         }
 
@@ -770,7 +702,7 @@ if (voucher_code) {
 
 if (payment_method === "cash") {
 
-  booking.status = "holding";
+  booking.status = "booked";
 
   booking.payment_status = "pending";
 
@@ -830,14 +762,32 @@ booking.payment_group =
 // PRICE
 // =====================================================
 
-booking.total_price =
-  total_price;
+const bookingPrice =
+  Math.round(
+    total_price / bookings.length
+  );
+
+const bookingFinal =
+  Math.round(
+    finalAmount / bookings.length
+  );
+
+const bookingDiscount =
+  Math.round(
+    discountAmount / bookings.length
+  );
+
+  booking.total_price =
+  bookingPrice;
 
 booking.discount_amount =
-  discountAmount;
+  bookingDiscount;
 
 booking.final_amount =
-  finalAmount;
+  bookingFinal;
+
+  booking.duration =
+  duration;
 
 booking.voucher_code =
   voucher_code || null;
@@ -851,7 +801,7 @@ await booking.save({
 });
 
 // SAVE ARRAY
-bookings.push(booking);
+createdBookings.push(booking);
 
         let emitTime = new Date(
     booking.start_time
@@ -867,7 +817,7 @@ bookings.push(booking);
   fieldId: field_id,
 
   bookingDate:
-    booking_date,
+    bookingDate,
 
   startTime:
     emitTime,
@@ -900,7 +850,7 @@ if (voucher_code) {
     .createUserVoucher({
       userId: req.user.id,
       voucherCode: voucher_code,
-      bookingId: bookings[0].id,
+      bookingId: createdBookings[0].id,
       transaction,
     });
 }
@@ -920,7 +870,7 @@ if (
       "../services/notificationService"
     );
 
-  for (const booking of bookings) {
+  for (const booking of createdBookings) {
 
   const notification =
     await notificationService
@@ -955,13 +905,12 @@ return res.json({
         message:
         "Booking created successfully",
 
-        booking:
-        formatBookingResponse(
-            bookings[0]
-        ),
+        booking: formatBookingResponse(
+  createdBookings[0]
+),
 
         bookings:
-        bookings.map((b) =>
+        createdBookings.map((b) =>
             formatBookingResponse(
                 b
             )
@@ -1338,13 +1287,13 @@ if (booking_date) {
         });
 
         return res.json({
-          success: true,
+  success: true,
 
-          bookings:
-            bookings.map((b) =>
-              formatBookingResponse(b)
-            ),
-        });
+  bookings:
+    bookings.map((b) =>
+      formatBookingResponse(b)
+    ),
+});
     } catch (err) {
       console.error(
         "❌ getByDate error:",
@@ -1433,13 +1382,13 @@ if (booking_date) {
           });
 
         return res.json({
-          success: true,
+  success: true,
 
-          bookings:
-            bookings.map((b) =>
-              formatBookingResponse(b)
-            ),
-        });
+  bookings:
+    bookings.map((b) =>
+      formatBookingResponse(b)
+    ),
+});
       } catch (err) {
         console.error(
           "❌ getAllBookings error:",
@@ -1468,6 +1417,16 @@ const cancel = async (
       await Booking.findByPk(
         req.params.id
       );
+
+      console.log(
+  "CANCEL BOOKING ID =>",
+  req.params.id
+);
+
+console.log(
+  "CANCEL BODY =>",
+  req.body
+);
 
     if (!booking) {
 
@@ -1599,6 +1558,28 @@ await booking.save();
       "pending";
 
     await booking.save();
+
+    console.log(
+  "AFTER SAVE =>",
+  {
+    id: booking.id,
+
+    payment_status:
+      booking.payment_status,
+
+    refund_status:
+      booking.refund_status,
+
+    refund_bank_name:
+      booking.refund_bank_name,
+
+    refund_bank_number:
+      booking.refund_bank_number,
+
+    refund_bank_owner:
+      booking.refund_bank_owner,
+  }
+);
 
     return res.json({
       success: true,

@@ -884,22 +884,31 @@ if (
 
   for (const booking of createdBookings) {
 
-  const notification =
-    await notificationService
-      .createNotification({
+ const notification =
+  await notificationService
+    .createNotification({
 
-        userId:
-          booking.userId,
+      userId:
+        booking.userId,
 
-        title:
-          "Đặt sân thành công",
+      title:
+        "Đặt sân thành công",
 
-        message:
-          `Bạn đã đặt sân thành công lúc ${booking.start_time}`,
+      message:
+        `Bạn đã đặt sân ${booking.field_name} lúc ${booking.start_time}`,
 
-        type:
-          "booking",
-      });
+      type:
+        "booking",
+
+      icon:
+        "sports_soccer",
+
+      route:
+        "/booking-info",
+
+      referenceId:
+        booking.id,
+    });
 
   io.to(
     `user_${booking.userId}`
@@ -907,6 +916,40 @@ if (
     "new_notification",
     notification
   );
+
+  // ================= ADMIN NOTIFICATION =================
+
+  const adminNotification =
+  await notificationService
+    .createNotification({
+
+      userId: 1,
+
+      title:
+        "Có đơn đặt sân mới",
+
+      message:
+        `${booking.name} vừa đặt sân`,
+
+      type:
+  "admin",
+  
+      icon:
+        "admin_panel_settings",
+
+      route:
+        "/admin/bookings",
+
+      referenceId:
+        booking.id,
+    });
+
+io.to("user_1").emit(
+  "new_notification",
+  adminNotification
+);
+
+
 }
 }
 
@@ -1518,6 +1561,44 @@ console.log(
 
       await booking.save();
 
+      const notificationService =
+  require(
+    "../services/notificationService"
+  );
+
+const notification =
+  await notificationService
+    .createNotification({
+
+      userId:
+        booking.userId,
+
+      title:
+        "Đã hủy đặt sân",
+
+      message:
+        "Đơn đặt sân của bạn đã được hủy",
+
+      type:
+        "booking",
+
+      icon:
+        "cancel",
+
+      route:
+        "/history",
+
+      referenceId:
+        booking.id,
+    });
+
+io.to(
+  `user_${booking.userId}`
+).emit(
+  "new_notification",
+  notification
+);
+
       // mở slot realtime
       emitSlotUpdate({
         io,
@@ -1534,7 +1615,6 @@ console.log(
         status:
           "cancelled",
       });
-
       return res.json({
         success: true,
 
@@ -1593,6 +1673,41 @@ booking.refund_reason =
   new Date();
 
 await booking.save();
+
+const notificationService =
+  require(
+    "../services/notificationService"
+  );
+
+const adminNotification =
+  await notificationService
+    .createNotification({
+
+      userId: 1,
+
+      title:
+        "Yêu cầu hoàn tiền",
+
+      message:
+        `${req.user.name} yêu cầu hoàn tiền booking #${booking.id}`,
+
+      type:
+        "refund",
+
+      icon:
+        "payments",
+
+      route:
+        "/admin/bookings",
+
+      referenceId:
+        booking.id,
+    });
+
+io.to("user_1").emit(
+  "new_notification",
+  adminNotification
+);
 
 console.log(
   "REFUND REQUEST =>",
@@ -1726,6 +1841,44 @@ booking.hold_until =
   null;
 
 await booking.save();
+
+const notificationService =
+  require(
+    "../services/notificationService"
+  );
+
+const notification =
+  await notificationService
+    .createNotification({
+
+      userId:
+        booking.userId,
+
+      title:
+        "Hoàn tiền thành công",
+
+      message:
+        `Bạn đã được hoàn ${booking.refund_amount} VNĐ`,
+
+      type:
+        "refund",
+
+      icon:
+        "payments",
+
+      route:
+        "/history",
+
+      referenceId:
+        booking.id,
+    });
+
+io.to(
+  `user_${booking.userId}`
+).emit(
+  "new_notification",
+  notification
+);
 
     // mở slot lại
     emitSlotUpdate({

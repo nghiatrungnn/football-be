@@ -16,7 +16,7 @@ const Notification =
 
       userId: {
   type: DataTypes.INTEGER,
-  allowNull: false,
+  allowNull: true,
   references: {
     model: "users",
     key: "id",
@@ -61,6 +61,11 @@ const Notification =
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+
+isGlobal: {
+  type: DataTypes.BOOLEAN,
+  defaultValue: false,
+},
 
       isRead: {
         type: DataTypes.BOOLEAN,

@@ -10,11 +10,51 @@ const createNotification =
 
     try {
 
+      const {
+        userId,
+        title,
+        message,  
+        type,
+        isGlobal,
+      } = req.body;
+
       const notification =
         await notificationService
-          .createNotification(
-            req.body
-          );
+          .createNotification({
+
+            userId,
+
+            title,
+
+            message,
+
+            type,
+
+            isGlobal:
+              isGlobal || false,
+          });
+
+      const io =
+        req.app.get("io");
+
+      // ================= GLOBAL =================
+
+      if (isGlobal) {
+
+        io.emit(
+          "new_notification",
+          notification
+        );
+
+      } else {
+
+        io.to(
+          `user_${userId}`
+        ).emit(
+          "new_notification",
+          notification
+        );
+      }
 
       res.status(201).json({
         success: true,
@@ -27,9 +67,7 @@ const createNotification =
         success: false,
         message: error.message,
       });
-
     }
-
   };
 
 // ================= GET ALL =================
@@ -180,7 +218,6 @@ const markAsRead =
         await notificationService
           .markAsRead(
             req.params.id,
-            req.user.id
           );
 
       if (!result) {
@@ -248,7 +285,6 @@ const deleteNotification =
         await notificationService
   .deleteNotification(
     req.params.id,
-    req.user.id
   );
       if (!result) {
 

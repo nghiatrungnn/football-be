@@ -1,6 +1,9 @@
 const Notification =
   require("../models/notification");
 
+const { Op } =
+  require("sequelize");
+
 // ================= CREATE =================
 
 const createNotification =
@@ -16,22 +19,36 @@ const createNotification =
     route = null,
 
     referenceId = null,
+
+    isRead = false,
+
+    isGlobal = false,
+
   }) => {
 
-    return await Notification.create({
-      userId,
-      title,
-      message,
+    const notification =
+      await Notification.create({
 
-      type,
+        userId,
 
-      icon,
+        title,
 
-      route,
+        message,
 
-      referenceId,
-    });
+        type,
 
+        icon,
+
+        route,
+
+        referenceId,
+
+        isRead,
+        
+        isGlobal,
+      });
+
+    return notification;
   };
 
 // ================= GET ALL =================
@@ -57,8 +74,18 @@ const getMyNotifications =
     return await Notification.findAll({
 
       where: {
-        userId,
-      },
+
+  [Op.or]: [
+
+    {
+      userId,
+    },
+
+    {
+      isGlobal: true,
+    },
+  ],
+},
 
       order: [
         ["createdAt", "DESC"],
@@ -100,14 +127,13 @@ const updateNotification =
 // ================= READ =================
 
 const markAsRead =
-  async (id, userId) => {
+  async (id) => {
 
     const notification =
       await Notification.findOne({
 
         where: {
           id,
-          userId,
         },
 
       });
@@ -152,7 +178,6 @@ const markAllAsRead =
 const deleteNotification =
   async (
     id,
-    userId,
   ) => {
 
     const notification =
@@ -160,7 +185,6 @@ const deleteNotification =
 
         where: {
           id,
-          userId,
         },
 
       });

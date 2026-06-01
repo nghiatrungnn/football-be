@@ -75,6 +75,18 @@
     return {
       ...booking.toJSON(),
 
+      refund_amount:
+  booking.refund_amount || 0,
+
+refund_reason:
+  booking.refund_reason,
+
+refund_requested_at:
+  booking.refund_requested_at,
+
+refunded_at:
+  booking.refunded_at,
+
       booking_date:
           formatDateOnly(
               booking.booking_date
@@ -1535,11 +1547,31 @@ console.log(
     // PAYOS
     // =====================================================
 
+if (
+  !req.body.bank_name ||
+  !req.body.bank_number ||
+  !req.body.bank_owner
+) {
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "Vui lòng nhập đầy đủ thông tin ngân hàng",
+  });
+}
+
     booking.payment_status =
   "refund_pending";
 
 booking.refund_status =
   "pending";
+
+// ================= REFUND AMOUNT =================
+
+booking.refund_amount =
+  booking.final_amount ||
+  booking.total_price ||
+  0;
 
 // ================= BANK INFO =================
 
@@ -1552,35 +1584,28 @@ booking.refund_bank_number =
 booking.refund_bank_owner =
   req.body.bank_owner;
 
+// ================= REFUND REASON =================
+
+booking.refund_reason =
+  req.body.reason || null;
+
+  booking.refund_requested_at =
+  new Date();
+
 await booking.save();
 
-    booking.refund_status =
-      "pending";
-
-    await booking.save();
-
-    console.log(
-  "AFTER SAVE =>",
+console.log(
+  "REFUND REQUEST =>",
   {
     id: booking.id,
 
-    payment_status:
-      booking.payment_status,
-
-    refund_status:
-      booking.refund_status,
+    refund_amount:
+      booking.refund_amount,
 
     refund_bank_name:
       booking.refund_bank_name,
-
-    refund_bank_number:
-      booking.refund_bank_number,
-
-    refund_bank_owner:
-      booking.refund_bank_owner,
   }
 );
-
     return res.json({
       success: true,
 
@@ -1662,60 +1687,45 @@ if (
 // CHECK PAYMENT LINK
 // =====================================================
 
-if (!booking.payment_link_id) {
+if (
+  booking.payment_method === "banking" &&
+  booking.payment_link_id
+) {
 
-  return res.status(400).json({
-    success: false,
-    message:
-      "Không tìm thấy payment link",
-  });
-}
-
-// =====================================================
-// PAYOS CANCEL PAYMENT
-// =====================================================
-
-const refundRes =
-  await axios.post(
-
-    `https://api-merchant.payos.vn/v2/payment-requests/${booking.payment_link_id}/cancel`,
-
-    {
-      cancellationReason:
+  const refundRes =
+    await axios.post(
+      `https://api-merchant.payos.vn/v2/payment-requests/${booking.payment_link_id}/cancel`,
+      {
+        cancellationReason:
           "Khach huy san"
-    },
-
-    {
-      headers: {
-
-        "x-client-id":
-            process.env
-                .PAYOS_CLIENT_ID,
-
-        "x-api-key":
-            process.env
-                .PAYOS_API_KEY,
       },
-    }
-);
+      {
+        headers: {
+          "x-client-id":
+            process.env.PAYOS_CLIENT_ID,
 
-console.log(
-  "PAYOS REFUND =>",
-  refundRes.data
-);
+          "x-api-key":
+            process.env.PAYOS_API_KEY,
+        },
+      }
+    );
+}
     booking.status =
-      "cancelled";
+  "cancelled";
 
-    booking.payment_status =
-      "refunded";
+booking.payment_status =
+  "refunded";
 
-    booking.refund_status =
-      "done";
+booking.refund_status =
+  "done";
 
-    booking.hold_until =
-      null;
+booking.refunded_at =
+  new Date();
 
-    await booking.save();
+booking.hold_until =
+  null;
+
+await booking.save();
 
     // mở slot lại
     emitSlotUpdate({

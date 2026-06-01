@@ -529,33 +529,6 @@ for (const b of groupBookings) {
           "✅ PAYMENT SUCCESS"
         );
 
-        // =====================================================
-// CREATE NOTIFICATION
-// =====================================================
-
-for (const b of groupBookings) {
-
-  await notificationService
-    .createNotification({
-
-      userId:
-        b.userId,
-
-      title:
-        "Thanh toán thành công",
-
-      message:
-        `Bạn đã đặt sân thành công lúc ${b.start_time}`,
-
-      type:
-        "booking",
-    });
-}
-
-        // =====================================================
-        // REALTIME
-        // =====================================================
-
 // =====================================================
 // REALTIME NOTIFICATION
 // =====================================================

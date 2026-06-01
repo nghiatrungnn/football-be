@@ -165,6 +165,32 @@ refund_bank_owner: {
   defaultValue: null,
 },
 
+// ================= REFUND =================
+
+refund_amount: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  defaultValue: 0,
+},
+
+refund_reason: {
+  type: DataTypes.TEXT,
+  allowNull: true,
+  defaultValue: null,
+},
+
+refund_requested_at: {
+  type: DataTypes.DATE,
+  allowNull: true,
+  defaultValue: null,
+},
+
+refunded_at: {
+  type: DataTypes.DATE,
+  allowNull: true,
+  defaultValue: null,
+},
+
     // ================= HOLD EXPIRE =================
     hold_until: {
       type: DataTypes.DATE,

@@ -919,11 +919,20 @@ if (
 
   // ================= ADMIN NOTIFICATION =================
 
+const admin =
+  await User.findOne({
+    where: {
+      email: "admin@gmail.com",
+    },
+  });
+
+if (!admin) continue;
+
   const adminNotification =
   await notificationService
     .createNotification({
 
-      userId: 1,
+      userId: admin.id,
 
       title:
         "Có đơn đặt sân mới",
@@ -944,7 +953,7 @@ if (
         booking.id,
     });
 
-io.to("user_1").emit(
+io.to(`user_${admin.id}`).emit(
   "new_notification",
   adminNotification
 );
@@ -1735,11 +1744,25 @@ const notificationService =
     "../services/notificationService"
   );
 
+const admin =
+  await User.findOne({
+    where: {
+      email: "admin@gmail.com",
+    },
+  });
+
+if (!admin) {
+  return res.status(404).json({
+    success: false,
+    message: "Admin not found",
+  });
+}
+
 const adminNotification =
   await notificationService
     .createNotification({
 
-      userId: 1,
+      userId: admin.id,
 
       title:
         "Yêu cầu hoàn tiền",
@@ -1760,7 +1783,7 @@ const adminNotification =
         booking.id,
     });
 
-io.to("user_1").emit(
+io.to(`user_${admin.id}`).emit(
   "new_notification",
   adminNotification
 );

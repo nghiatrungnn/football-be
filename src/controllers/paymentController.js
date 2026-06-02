@@ -116,16 +116,18 @@ if (!paymentGroup) {
       // =====================================================
 
       if (
-        booking.payment_status ===
-        "paid"
-      ) {
+  booking.payment_status ===
+    "paid" ||
+  booking.payment_status ===
+    "deposit_paid"
+) {
 
-        return res.status(400).json({
-          success: false,
-          message:
-            "Booking already paid",
-        });
-      }
+  return res.status(400).json({
+    success: false,
+    message:
+      "Booking already paid",
+  });
+}
 
       // =====================================================
       // ORDER CODE
@@ -170,18 +172,23 @@ for (const b of bookings) {
       // =====================================================
 
       const body = {
-        orderCode,
+  orderCode,
 
-        amount:
-          Number(amount),
+  amount:
+    bookings.reduce(
+      (sum, b) =>
+        sum +
+        (b.deposit_amount || 0),
+      0
+    ),
 
-        description:
-  `Ten:${booking.user.name} Dat San:${booking.field.name}`.slice(0, 25),
+  description:
+    `Ten:${booking.user.name} Dat San:${booking.field.name}`.slice(0, 25),
 
-        returnUrl,
+  returnUrl,
 
-        cancelUrl,
-      };
+  cancelUrl,
+};
 
       // =====================================================
       // SIGNATURE
@@ -417,23 +424,25 @@ const paymentWebhook =
           return res.send("OK");
         }
 
-        // =====================================================
-        // ALREADY PAID
-        // =====================================================
+       // =====================================================
+// ALREADY PAID OR DEPOSIT PAID
+// =====================================================
 
-        if (
-          booking.payment_status ===
-          "paid"
-        ) {
+if (
+  booking.payment_status ===
+    "deposit_paid" ||
+  booking.payment_status ===
+    "paid"
+) {
 
-          await transaction.rollback();
+  await transaction.rollback();
 
-          console.log(
-            "ALREADY PAID"
-          );
+  console.log(
+    "ALREADY PROCESSED"
+  );
 
-          return res.send("OK");
-        }
+  return res.send("OK");
+}
 
         // =====================================================
         // UPDATE BOOKING
@@ -470,13 +479,19 @@ console.log(
 
 for (const b of groupBookings) {
 
-  console.log(
-  "UPDATE BOOKING =>",
-  b.id
-);
+  if (
+    b.payment_method ===
+    "deposit"
+  ) {
 
-  b.payment_status =
-    "paid";
+    b.payment_status =
+      "deposit_paid";
+
+  } else {
+
+    b.payment_status =
+      "paid";
+  }
 
   b.status =
     "booked";

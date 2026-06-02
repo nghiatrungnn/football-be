@@ -22,6 +22,7 @@ const requiredControllers = [
   "cancelHold",
   "createBooking",
   "updateBooking",
+  "completePayment",
   "deleteBooking",
   "getByDate",
   "getMyBookings",
@@ -86,6 +87,13 @@ router.put(
   "/:id",
   auth,
   ctrl.updateBooking
+);
+
+// ================= COMPLETE PAYMENT =================
+router.put(
+  "/:id/complete-payment",
+  auth,
+  ctrl.completePayment
 );
 
 // ================= DELETE BOOKING =================

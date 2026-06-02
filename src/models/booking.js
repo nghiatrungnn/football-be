@@ -61,20 +61,19 @@ end_time: {
 
     // ================= PAYMENT METHOD =================
     payment_method: {
-      type: DataTypes.ENUM(
-        "cash",
-        "banking"
-      ),
-
-      allowNull: false,
-
-      defaultValue: "cash",
-    },
+  type: DataTypes.ENUM(
+    "deposit",
+    "full"
+  ),
+  allowNull: false,
+  defaultValue: "deposit",
+},
 
     // ================= PAYMENT STATUS =================
     payment_status: {
   type: DataTypes.ENUM(
     "pending",
+    "deposit_paid",
     "paid",
     "failed",
     "refunded",
@@ -224,6 +223,24 @@ refunded_at: {
       allowNull: false,
       defaultValue: 0,
     },
+
+    deposit_percent: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  defaultValue: 30,
+},
+
+deposit_amount: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  defaultValue: 0,
+},
+
+remaining_amount: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  defaultValue: 0,
+},
 
     // ================= CREATED AT =================
     createdAt: {

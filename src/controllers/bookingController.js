@@ -332,7 +332,7 @@ refunded_at:
             total_price: 0,
 
             payment_method:
-              "cash",
+  "deposit",
 
             payment_status:
               "pending",
@@ -727,35 +727,20 @@ payment_group ||
         }
 
   // =====================================================
-  // CASH
+  // DEPOSIT
   // =====================================================
 
-if (payment_method === "cash") {
+booking.status =
+  "holding";
 
-  booking.status = "booked";
+booking.payment_status =
+  "pending";
 
-  booking.payment_status = "pending";
-
-  booking.hold_until = null;
-}
-
-  // =====================================================
-  // TRANSFER / PAYOS
-  // =====================================================
-
-  else {
-
-    // Chờ PayOS xác nhận
-    booking.status = "holding";
-
-    booking.payment_status = "pending";
-
-    booking.hold_until =
-        new Date(
-            Date.now() +
-            10 * 60 * 1000
-        );
-  }
+booking.hold_until =
+  new Date(
+    Date.now() +
+    10 * 60 * 1000
+  );
         // =====================================================
         // INFO
         // =====================================================
@@ -835,6 +820,34 @@ booking.discount_amount =
 booking.final_amount =
   bookingFinal;
 
+  if (
+  payment_method === "deposit"
+) {
+
+  booking.deposit_percent =
+    30;
+
+  booking.deposit_amount =
+    Math.round(
+      bookingFinal * 0.3
+    );
+
+  booking.remaining_amount =
+    bookingFinal -
+    booking.deposit_amount;
+
+} else {
+
+  booking.deposit_percent =
+    100;
+
+  booking.deposit_amount =
+    bookingFinal;
+
+  booking.remaining_amount =
+    0;
+}
+
   booking.duration =
   duration;
 
@@ -907,11 +920,11 @@ if (voucher_code) {
       await transaction.commit();
 
 // =====================================================
-// CASH NOTIFICATION
+// DEPOSIT NOTIFICATION
 // =====================================================
 
 if (
-  payment_method === "cash"
+  payment_method === "deposit"
 ) {
 
   const notificationService =
@@ -1687,88 +1700,6 @@ console.log(
     }
 
     // =====================================================
-    // CASH
-    // =====================================================
-
-    if (
-      booking.payment_method ===
-      "cash"
-    ) {
-
-      booking.status =
-        "cancelled";
-
-      booking.payment_status =
-        "cancelled";
-
-      booking.hold_until =
-        null;
-
-      await booking.save();
-
-      const notificationService =
-  require(
-    "../services/notificationService"
-  );
-
-const notification =
-  await notificationService
-    .createNotification({
-
-      userId:
-        booking.userId,
-
-      title:
-        "Đã hủy đặt sân",
-
-      message:
-        "Đơn đặt sân của bạn đã được hủy",
-
-      type:
-        "booking",
-
-      icon:
-        "cancel",
-
-      route:
-        "/history",
-
-      referenceId:
-        booking.id,
-    });
-
-io.to(
-  `user_${booking.userId}`
-).emit(
-  "new_notification",
-  notification
-);
-
-      // mở slot realtime
-      emitSlotUpdate({
-        io,
-
-        fieldId:
-          booking.fieldId,
-
-        bookingDate:
-          booking.booking_date,
-
-        startTime:
-          booking.start_time,
-
-        status:
-          "cancelled",
-      });
-      return res.json({
-        success: true,
-
-        message:
-          "Đã hủy sân",
-      });
-    }
-
-    // =====================================================
     // PAYOS
     // =====================================================
 
@@ -1794,8 +1725,7 @@ booking.refund_status =
 // ================= REFUND AMOUNT =================
 
 booking.refund_amount =
-  booking.final_amount ||
-  booking.total_price ||
+  booking.deposit_amount ||
   0;
 
 // ================= BANK INFO =================
@@ -2194,6 +2124,59 @@ async (req, res) => {
   }
 };
 
+// ================= COMPLETE PAYMENT =================
+
+const completePayment =
+async (req, res) => {
+
+  try {
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id
+      );
+
+    if (!booking) {
+
+      return res.status(404).json({
+        success: false,
+        message:
+          "Booking not found",
+      });
+    }
+
+    if (
+      booking.payment_status !==
+      "deposit_paid"
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Booking chưa thanh toán cọc",
+      });
+    }
+
+    booking.payment_status =
+      "paid";
+
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message:
+        "Đã thu đủ tiền",
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
   // ================= EXPORTS =================
 module.exports = {
   holdSlot,
@@ -2208,4 +2191,5 @@ module.exports = {
   cancel,
   refundBooking,
   rejectRefund,
+  completePayment,
 };

@@ -1479,29 +1479,72 @@ bookings.forEach((b) => {
     booking.payment_group ||
     booking.id;
 
+    console.log(
+  "RAW BOOKING =>",
+  {
+    id: booking.id,
+    payment_status:
+      booking.payment_status,
+    status:
+      booking.status,
+    payment_method:
+      booking.payment_method,
+  }
+);
+
   if (!grouped[key]) {
 
     grouped[key] = {
-      ...booking,
-      slots: [],
-    };
+  ...booking,
+
+  payment_status:
+    booking.payment_status,
+
+  slots: [],
+};
   }
 
   grouped[key].slots.push({
-    date:
-      booking.booking_date,
+  date: booking.booking_date,
+  start: booking.start_time,
+  end: booking.end_time,
 
-    start:
-      booking.start_time,
+  payment_status:
+    booking.payment_status,
 
-    end:
-      booking.end_time,
+  price:
+    booking.final_amount ||
+    booking.total_price ||
+    0,
+});
 
-    price:
-      booking.final_amount ||
-      booking.total_price ||
-      0,
-  });
+const allPending =
+  grouped[key].slots.every(
+    (s) =>
+      s.payment_status ===
+      "pending"
+  );
+
+if (allPending) {
+
+  grouped[key].payment_status =
+    "pending";
+}
+
+});
+
+console.log(
+  JSON.stringify(
+    Object.values(grouped),
+    null,
+    2
+  )
+);
+
+return res.json({
+  success: true,
+  bookings:
+    Object.values(grouped),
 });
 
 return res.json({

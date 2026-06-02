@@ -3,6 +3,7 @@
     field: Field,
     user: User,
     sequelize,
+    FieldPricing,
   } = require("../models");
 
   const voucherService = require("../services/voucherService");
@@ -578,20 +579,37 @@ if (!field) {
 
 // ================= CALCULATE PRICE =================
 
-const totalSlots =
-  bookings.length;
+let total_price = 0;
 
-const totalHours =
-  (duration / 60) *
-  totalSlots;
+for (const item of bookings) {
 
-// giá sân / giờ
-const fieldPrice =
-  Number(field.price_per_hour || 0);
+  const slotTime = item.slot;
 
-// tổng giá gốc
-const total_price =
-  fieldPrice * totalHours;
+  const pricing =
+    await FieldPricing.findOne({
+
+      where: {
+        fieldId: field_id,
+
+        start_time: {
+          [Op.lte]: slotTime,
+        },
+
+        end_time: {
+          [Op.gt]: slotTime,
+        },
+      },
+    });
+
+  const pricePerHour =
+    pricing
+      ? pricing.price_per_hour
+      : field.price_per_hour;
+
+  total_price +=
+    pricePerHour *
+    (duration / 60);
+}
 
 // ================= APPLY VOUCHER =================
 
@@ -774,10 +792,29 @@ booking.payment_group =
 // PRICE
 // =====================================================
 
+const pricing =
+  await FieldPricing.findOne({
+    where: {
+      fieldId: field_id,
+
+      start_time: {
+        [Op.lte]: slot,
+      },
+
+      end_time: {
+        [Op.gt]: slot,
+      },
+    },
+  });
+
+const slotPrice =
+  pricing
+    ? pricing.price_per_hour
+    : field.price_per_hour;
+
 const bookingPrice =
-  Math.round(
-    total_price / bookings.length
-  );
+  slotPrice *
+  (duration / 60);
 
 const bookingFinal =
   Math.round(
@@ -1885,8 +1922,8 @@ const refundBooking =
     }
 
     // =====================================================
-// ALREADY REFUNDED
-// =====================================================
+    // ALREADY REFUNDED
+    // =====================================================
 
 if (
   booking.payment_status ===
@@ -2036,6 +2073,65 @@ io.to(
   }
 };
 
+// ================= REJECT REFUND =================
+
+const rejectRefund = async (
+  req,
+  res
+) => {
+
+  try {
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id
+      );
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (
+      booking.payment_status !==
+      "refund_pending"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Đơn chưa yêu cầu hoàn tiền",
+      });
+    }
+
+    booking.payment_status =
+      "refund_rejected";
+
+    booking.refund_status =
+      "rejected";
+
+    booking.refund_reason =
+      req.body.reason ||
+      "Không đủ điều kiện hoàn tiền";
+
+    await booking.save();
+
+    return res.json({
+      success: true,
+      message:
+        "Đã từ chối hoàn tiền",
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 // ================= GET BOOKING BY ID =================
 const getBookingById =
 async (req, res) => {
@@ -2111,4 +2207,5 @@ module.exports = {
   getBookingById,
   cancel,
   refundBooking,
+  rejectRefund,
 };

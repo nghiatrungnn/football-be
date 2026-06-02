@@ -79,6 +79,7 @@ end_time: {
     "failed",
     "refunded",
     "refund_pending",
+    "refund_rejected",
     "cancelled"
   ),
 

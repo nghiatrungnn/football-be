@@ -27,6 +27,8 @@ const requiredControllers = [
   "getMyBookings",
   "getAllBookings",
   "cancel",
+  "refundBooking",
+  "rejectRefund",
 ];
 
 requiredControllers.forEach((fn) => {
@@ -156,4 +158,12 @@ router.post(
   auth,
   ctrl.refundBooking
 );
+
+// ================= REJECT REFUND =================
+router.post(
+  "/refund/:id/reject",
+  auth,
+  ctrl.rejectRefund
+);
+
 module.exports = router;

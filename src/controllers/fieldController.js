@@ -342,9 +342,25 @@ const updatedSlots =
       slotDateTime.getTime() <
       now.getTime();
 
+    const pricing =
+      oneField.pricingRules?.find(
+        (p) =>
+          slot.start >= p.start_time &&
+          slot.start < p.end_time
+      );
+
     return {
       ...slot,
+
       isPast,
+
+      price:
+        pricing?.price_per_hour ||
+        oneField.price_per_hour,
+
+      label:
+        pricing?.label ||
+        "normal",
     };
   });
 

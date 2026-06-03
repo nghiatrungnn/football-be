@@ -2083,7 +2083,7 @@ if (
     );
 }
   await booking.update({
-  status: "booked",
+  status: "cancelled",
 
   payment_status: "refunded",
 

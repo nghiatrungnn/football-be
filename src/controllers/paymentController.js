@@ -183,7 +183,7 @@ for (const b of bookings) {
     ),
 
   description:
-    `Ten:${booking.user.name} San:${booking.field.name}`.slice(0, 25),
+    `Ten:${booking.user.name}San:${booking.field.name}`.slice(0, 25),
 
   returnUrl,
 
@@ -486,6 +486,25 @@ await Booking.findAll({
 
   transaction,
 });
+
+// KIỂM TRA BOOKING ĐÃ HỦY CHƯA
+
+const hasCancelled =
+  groupBookings.some(
+    (b) =>
+      b.status === "cancelled"
+  );
+
+if (hasCancelled) {
+
+  await transaction.rollback();
+
+  console.log(
+    "BOOKING CANCELLED - IGNORE PAYMENT"
+  );
+
+  return res.send("OK");
+}
 
 console.log(
   "GROUP BOOKINGS =>",

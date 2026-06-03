@@ -1611,6 +1611,45 @@ console.log(
     0,
 });
 
+const statuses =
+  grouped[key].slots.map(
+    (s) => s.payment_status
+  );
+
+if (statuses.includes("refund_pending")) {
+
+  grouped[key].payment_status =
+    "refund_pending";
+
+} else if (
+  statuses.includes("refund_rejected")
+) {
+
+  grouped[key].payment_status =
+    "refund_rejected";
+
+} else if (
+  statuses.includes("refunded")
+) {
+
+  grouped[key].payment_status =
+    "refunded";
+
+} else if (
+  statuses.every(
+    (s) => s === "pending"
+  )
+) {
+
+  grouped[key].payment_status =
+    "pending";
+
+} else {
+
+  grouped[key].payment_status =
+    "paid";
+}
+
 // Ưu tiên lấy booking có thông tin hoàn tiền
 
 if (
@@ -1808,36 +1847,21 @@ if (
   });
 }
 
-   await Booking.update(
-  {
-    payment_status:
-      "refund_pending",
+   await booking.update({
+  payment_status: "refund_pending",
 
-    refund_status:
-      "pending",
+  refund_status: "pending",
 
-    refund_bank_name:
-      req.body.bank_name,
+  refund_bank_name: req.body.bank_name,
 
-    refund_bank_number:
-      req.body.bank_number,
+  refund_bank_number: req.body.bank_number,
 
-    refund_bank_owner:
-      req.body.bank_owner,
+  refund_bank_owner: req.body.bank_owner,
 
-    refund_reason:
-      req.body.reason || null,
+  refund_reason: req.body.reason || null,
 
-    refund_requested_at:
-      new Date(),
-  },
-  {
-    where: {
-      payment_group:
-        booking.payment_group,
-    },
-  }
-);
+  refund_requested_at: new Date(),
+});
 
 const notificationService =
   require(
@@ -2058,25 +2082,17 @@ if (
       }
     );
 }
-   await Booking.update(
-  {
-    status: "booked",
+  await booking.update({
+  status: "booked",
 
-    payment_status: "refunded",
+  payment_status: "refunded",
 
-    refund_status: "done",
+  refund_status: "done",
 
-    refunded_at: new Date(),
+  refunded_at: new Date(),
 
-    hold_until: null,
-  },
-  {
-    where: {
-      payment_group:
-        booking.payment_group,
-    },
-  }
-);
+  hold_until: null,
+});
 
 const updatedBookings =
   await Booking.findAll({
@@ -2188,25 +2204,15 @@ const rejectRefund = async (
       });
     }
 
-   await Booking.update(
-  {
-    payment_status:
-      "refund_rejected",
+  await booking.update({
+  payment_status: "refund_rejected",
 
-    refund_status:
-      "rejected",
+  refund_status: "rejected",
 
-    refund_reason:
-      req.body.reason ||
-      "Không đủ điều kiện hoàn tiền",
-  },
-  {
-    where: {
-      payment_group:
-        booking.payment_group,
-    },
-  }
-);
+  refund_reason:
+    req.body.reason ||
+    "Không đủ điều kiện hoàn tiền",
+});
 
     return res.json({
       success: true,

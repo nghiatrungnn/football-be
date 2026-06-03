@@ -1152,18 +1152,12 @@ booking.status =
 
     if (payment_status) {
 
-  await Booking.update(
-    {
-      payment_status,
-    },
-    {
-      where: {
-        payment_group:
-          booking.payment_group,
-      },
-      transaction,
-    }
-  );
+  booking.payment_status =
+    payment_status;
+
+  await booking.save({
+    transaction,
+  });
 
 } else {
 
@@ -1598,9 +1592,13 @@ console.log(
   }
 
   grouped[key].slots.push({
+  id: booking.id,
+
   date: booking.booking_date,
   start: booking.start_time,
   end: booking.end_time,
+
+  status: booking.status,
 
   payment_status:
     booking.payment_status,
@@ -1616,24 +1614,38 @@ const statuses =
     (s) => s.payment_status
   );
 
-if (statuses.includes("refund_pending")) {
+const refundedCount =
+  statuses.filter(
+    (s) => s === "refunded"
+  ).length;
+
+const pendingCount =
+  statuses.filter(
+    (s) => s === "refund_pending"
+  ).length;
+
+if (
+  refundedCount === statuses.length
+) {
+
+  grouped[key].payment_status =
+    "refunded";
+
+} else if (
+  pendingCount > 0
+) {
 
   grouped[key].payment_status =
     "refund_pending";
 
 } else if (
-  statuses.includes("refund_rejected")
+  statuses.includes(
+    "refund_rejected"
+  )
 ) {
 
   grouped[key].payment_status =
     "refund_rejected";
-
-} else if (
-  statuses.includes("refunded")
-) {
-
-  grouped[key].payment_status =
-    "refunded";
 
 } else if (
   statuses.every(
@@ -2084,13 +2096,9 @@ if (
 }
   await booking.update({
   status: "cancelled",
-
   payment_status: "refunded",
-
   refund_status: "done",
-
   refunded_at: new Date(),
-
   hold_until: null,
 });
 
@@ -2206,9 +2214,7 @@ const rejectRefund = async (
 
   await booking.update({
   payment_status: "refund_rejected",
-
   refund_status: "rejected",
-
   refund_reason:
     req.body.reason ||
     "Không đủ điều kiện hoàn tiền",

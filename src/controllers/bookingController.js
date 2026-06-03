@@ -989,12 +989,12 @@ if (
         booking.id,
     });
 
-  io.to(
-    `user_${booking.userId}`
-  ).emit(
-    "new_notification",
-    notification
-  );
+io.to(
+  `user_${booking.userId}`
+).emit(
+  "new_notification",
+  notification
+);
 
   // ================= ADMIN NOTIFICATION =================
 
@@ -1554,6 +1554,14 @@ bookings.forEach((b) => {
   const booking =
     formatBookingResponse(b);
 
+console.log(
+  "ADMIN DATA =>",
+  booking.id,
+  booking.refund_bank_name,
+  booking.refund_bank_number,
+  booking.payment_status
+);
+
   const key =
     booking.payment_group ||
     booking.id;
@@ -1569,6 +1577,12 @@ bookings.forEach((b) => {
     payment_method:
       booking.payment_method,
   }
+);
+
+console.log(
+  "BOOKING REFUND =>",
+  booking.id,
+  booking.refund_bank_number
 );
 
   if (!grouped[key]) {
@@ -1596,6 +1610,32 @@ bookings.forEach((b) => {
     booking.total_price ||
     0,
 });
+
+// Ưu tiên lấy booking có thông tin hoàn tiền
+
+if (
+  booking.refund_bank_number &&
+  booking.refund_bank_number.trim() !== ""
+) {
+
+  grouped[key].refund_bank_name =
+    booking.refund_bank_name;
+
+  grouped[key].refund_bank_number =
+    booking.refund_bank_number;
+
+  grouped[key].refund_bank_owner =
+    booking.refund_bank_owner;
+
+  grouped[key].refund_reason =
+    booking.refund_reason;
+
+  grouped[key].refund_requested_at =
+    booking.refund_requested_at;
+
+  grouped[key].refund_amount =
+    booking.refund_amount;
+}
 
 const allPending =
   grouped[key].slots.every(
@@ -1768,49 +1808,36 @@ if (
   });
 }
 
-    booking.payment_status =
-  "refund_pending";
+   await Booking.update(
+  {
+    payment_status:
+      "refund_pending",
 
-booking.refund_status =
-  "pending";
+    refund_status:
+      "pending",
 
-// ================= REFUND AMOUNT =================
+    refund_bank_name:
+      req.body.bank_name,
 
-if (
-  booking.payment_method === "deposit"
-) {
+    refund_bank_number:
+      req.body.bank_number,
 
-  booking.refund_amount =
-    booking.deposit_amount || 0;
+    refund_bank_owner:
+      req.body.bank_owner,
 
-} else {
+    refund_reason:
+      req.body.reason || null,
 
-  booking.refund_amount =
-    booking.final_amount ||
-    booking.total_price ||
-    0;
-}
-
-// ================= BANK INFO =================
-
-booking.refund_bank_name =
-  req.body.bank_name;
-
-booking.refund_bank_number =
-  req.body.bank_number;
-
-booking.refund_bank_owner =
-  req.body.bank_owner;
-
-// ================= REFUND REASON =================
-
-booking.refund_reason =
-  req.body.reason || null;
-
-  booking.refund_requested_at =
-  new Date();
-
-await booking.save();
+    refund_requested_at:
+      new Date(),
+  },
+  {
+    where: {
+      payment_group:
+        booking.payment_group,
+    },
+  }
+);
 
 const notificationService =
   require(
@@ -1841,7 +1868,7 @@ const adminNotification =
         "Yêu cầu hoàn tiền",
 
       message:
-        `${req.user.name} yêu cầu hoàn tiền booking #${booking.id}`,
+  `${booking.name} yêu cầu hoàn tiền booking #${booking.id}`,
 
       type:
         "refund",
@@ -1880,7 +1907,7 @@ console.log(
         "Đã gửi yêu cầu hoàn tiền",
     });
 
-  } catch (err) {
+   } catch (err) {
 
     console.error(err);
 
@@ -1891,6 +1918,60 @@ console.log(
   }
 };
 
+// ================= CANCEL PENDING PAYMENT =================
+
+const cancelPendingPayment = async (
+  req,
+  res
+) => {
+
+  try {
+
+    const booking =
+      await Booking.findByPk(
+        req.params.id
+      );
+
+    if (!booking) {
+
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (
+      booking.payment_status !==
+      "pending"
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message: "Booking đã thanh toán",
+      });
+    }
+
+    await Booking.destroy({
+      where: {
+        payment_group:
+          booking.payment_group,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message:
+        "Booking cancelled",
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 // ================= REFUND BOOKING =================
 
 const refundBooking =
@@ -1977,60 +2058,69 @@ if (
       }
     );
 }
-    booking.status =
-  "cancelled";
+   await Booking.update(
+  {
+    status: "booked",
 
-booking.payment_status =
-  "refunded";
+    payment_status: "refunded",
 
-booking.refund_status =
-  "done";
+    refund_status: "done",
 
-booking.refunded_at =
-  new Date();
+    refunded_at: new Date(),
 
-booking.hold_until =
-  null;
+    hold_until: null,
+  },
+  {
+    where: {
+      payment_group:
+        booking.payment_group,
+    },
+  }
+);
 
-await booking.save();
+const updatedBookings =
+  await Booking.findAll({
+    where: {
+      payment_group:
+        booking.payment_group,
+    },
+  });
 
 const notificationService =
   require(
     "../services/notificationService"
   );
 
-const notification =
-  await notificationService
-    .createNotification({
+for (const b of updatedBookings) {
 
-      userId:
-        booking.userId,
+  const notification =
+    await notificationService
+      .createNotification({
 
-      title:
-        "Hoàn tiền thành công",
+        userId: b.userId,
 
-      message:
-        `Bạn đã được hoàn ${booking.refund_amount} VNĐ`,
+        title:
+          "Hoàn tiền thành công",
 
-      type:
-        "refund",
+        message:
+          `Bạn đã được hoàn ${b.refund_amount} VNĐ`,
 
-      icon:
-        "payments",
+        type: "refund",
 
-      route:
-        "/history",
+        icon: "payments",
 
-      referenceId:
-        booking.id,
-    });
+        route: "/history",
 
-io.to(
-  `user_${booking.userId}`
-).emit(
-  "new_notification",
-  notification
-);
+        referenceId: b.id,
+      });
+
+  io.to(
+    `user_${b.userId}`
+  ).emit(
+    "new_notification",
+    notification
+  );
+}
 
     // mở slot lại
     emitSlotUpdate({
@@ -2098,17 +2188,25 @@ const rejectRefund = async (
       });
     }
 
-    booking.payment_status =
-      "refund_rejected";
+   await Booking.update(
+  {
+    payment_status:
+      "refund_rejected",
 
-    booking.refund_status =
-      "rejected";
+    refund_status:
+      "rejected",
 
-    booking.refund_reason =
+    refund_reason:
       req.body.reason ||
-      "Không đủ điều kiện hoàn tiền";
-
-    await booking.save();
+      "Không đủ điều kiện hoàn tiền",
+  },
+  {
+    where: {
+      payment_group:
+        booking.payment_group,
+    },
+  }
+);
 
     return res.json({
       success: true,
@@ -2252,6 +2350,7 @@ module.exports = {
   getAllBookings,
   getBookingById,
   cancel,
+  cancelPendingPayment,
   refundBooking,
   rejectRefund,
   completePayment,

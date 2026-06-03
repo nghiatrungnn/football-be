@@ -136,6 +136,12 @@ router.put(
   ctrl.cancel
 );
 
+router.delete(
+  "/:id/cancel-payment",
+  auth,
+  ctrl.cancelPendingPayment
+);
+
 // =====================================================
 // PAYOS PAYMENT ROUTES
 // =====================================================

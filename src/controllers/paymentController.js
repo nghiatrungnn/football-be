@@ -183,7 +183,7 @@ for (const b of bookings) {
     ),
 
   description:
-    `Ten:${booking.user.name} Dat San:${booking.field.name}`.slice(0, 25),
+    `Ten:${booking.user.name} San:${booking.field.name}`.slice(0, 25),
 
   returnUrl,
 
@@ -238,16 +238,40 @@ for (const b of bookings) {
         response.data
       );
 
+      console.log(
+  "PAYOS FULL RESPONSE =>",
+  JSON.stringify(
+    response.data,
+    null,
+    2
+  )
+);
+
 // =====================================================
 // SAVE PAYMENT LINK ID FOR ALL BOOKINGS
 // =====================================================
 
+if (
+  !response.data ||
+  !response.data.data
+) {
+
+  console.log(
+    "PAYOS ERROR =>",
+    response.data
+  );
+
+  return res.status(400).json({
+    success: false,
+    message:
+      "PayOS không trả về link thanh toán",
+  });
+}
+
 for (const b of bookings) {
 
   b.payment_link_id =
-    response.data
-      .data
-      .paymentLinkId;
+    response.data.data.paymentLinkId;
 
   await b.save();
 }

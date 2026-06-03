@@ -153,13 +153,6 @@ router.post(
   paymentCtrl.paymentWebhook
 );
 
-// ================= CANCEL BOOKING =================
-router.post(
-  "/cancel/:id",
-  auth,
-  ctrl.cancel
-);
-
 // ================= REFUND BOOKING =================
 router.post(
   "/refund/:id",

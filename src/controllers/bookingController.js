@@ -649,6 +649,8 @@ if (voucher_code) {
 
 const createdBookings = [];
 
+let allocatedDiscount = 0;
+
 const paymentGroup =
 payment_group ||
 `GROUP_${Date.now()}_${req.user.id}`;
@@ -801,15 +803,42 @@ const bookingPrice =
   slotPrice *
   (duration / 60);
 
-const bookingFinal =
-  Math.round(
-    finalAmount / bookings.length
-  );
+// tỷ lệ giá sân này trên tổng đơn
 
-const bookingDiscount =
-  Math.round(
-    discountAmount / bookings.length
-  );
+const discountRatio =
+  bookingPrice / total_price;
+
+// voucher được phân bổ cho sân này
+
+let bookingDiscount;
+
+const isLastBooking =
+  createdBookings.length ===
+  bookings.length - 1;
+
+if (isLastBooking) {
+
+  bookingDiscount =
+    discountAmount -
+    allocatedDiscount;
+
+} else {
+
+  bookingDiscount =
+    Math.round(
+      discountAmount *
+      discountRatio
+    );
+
+  allocatedDiscount +=
+    bookingDiscount;
+}
+
+// giá cuối cùng của sân này
+
+const bookingFinal =
+  bookingPrice -
+  bookingDiscount;
 
   booking.total_price =
   bookingPrice;
@@ -1627,9 +1656,12 @@ const cancel = async (
     const io = getIO(req);
 
     const booking =
-      await Booking.findByPk(
-        req.params.id
-      );
+await Booking.findByPk(
+  req.params.id,
+  {
+    include: [Field]
+  }
+);
 
       console.log(
   "CANCEL BOOKING ID =>",
@@ -1639,6 +1671,26 @@ const cancel = async (
 console.log(
   "CANCEL BODY =>",
   req.body
+);
+
+console.log(
+  "BANK NAME =>",
+  req.body.bank_name
+);
+
+console.log(
+  "BANK NUMBER =>",
+  req.body.bank_number
+);
+
+console.log(
+  "BANK OWNER =>",
+  req.body.bank_owner
+);
+
+console.log(
+  "REASON =>",
+  req.body.reason
 );
 
     if (!booking) {
@@ -1724,9 +1776,20 @@ booking.refund_status =
 
 // ================= REFUND AMOUNT =================
 
-booking.refund_amount =
-  booking.deposit_amount ||
-  0;
+if (
+  booking.payment_method === "deposit"
+) {
+
+  booking.refund_amount =
+    booking.deposit_amount || 0;
+
+} else {
+
+  booking.refund_amount =
+    booking.final_amount ||
+    booking.total_price ||
+    0;
+}
 
 // ================= BANK INFO =================
 

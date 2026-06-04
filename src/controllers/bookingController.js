@@ -1630,21 +1630,19 @@ const pendingCount =
     (s) => s === "refund_pending"
   ).length;
 
-if (
-  refundedCount === statuses.length
-) {
-
-  grouped[key].payment_status =
-    "refunded";
-
-} else if (
-  pendingCount > 0
-) {
+if (pendingCount > 0) {
 
   grouped[key].payment_status =
     "refund_pending";
 
-} else if (
+}
+else if (refundedCount > 0) {
+
+  grouped[key].payment_status =
+    "partial_refunded";
+
+}
+else if (
   statuses.includes(
     "refund_rejected"
   )
@@ -1653,16 +1651,8 @@ if (
   grouped[key].payment_status =
     "refund_rejected";
 
-} else if (
-  statuses.every(
-    (s) => s === "pending"
-  )
-) {
-
-  grouped[key].payment_status =
-    "pending";
-
-} else if (
+}
+else if (
   statuses.every(
     (s) => s === "deposit_paid"
   )
@@ -1671,10 +1661,22 @@ if (
   grouped[key].payment_status =
     "deposit_paid";
 
-} else {
+}
+else if (
+  statuses.every(
+    (s) => s === "pending"
+  )
+) {
+
+  grouped[key].payment_status =
+    "pending";
+
+}
+else {
 
   grouped[key].payment_status =
     "paid";
+
 }
 
 // Ưu tiên lấy booking có thông tin hoàn tiền

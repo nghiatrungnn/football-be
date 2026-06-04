@@ -1587,6 +1587,8 @@ console.log(
   payment_status:
     booking.payment_status,
 
+  refund_amount: 0,
+
   slots: [],
 };
   }
@@ -1602,6 +1604,9 @@ console.log(
 
   payment_status:
     booking.payment_status,
+
+    refund_amount:
+  booking.refund_amount || 0,
 
   price:
     booking.final_amount ||
@@ -1702,7 +1707,8 @@ if (
     booking.refund_requested_at;
 
   grouped[key].refund_amount =
-    booking.refund_amount;
+    (grouped[key].refund_amount || 0) +
+    (booking.refund_amount || 0);
 }
 
 const allPending =

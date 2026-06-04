@@ -1152,18 +1152,18 @@ booking.status =
 
     if (payment_status) {
 
-  booking.payment_status =
-    payment_status;
-
-  await booking.save({
-    transaction,
-  });
-
-} else {
-
-  await booking.save({
-    transaction,
-  });
+  await Booking.update(
+    {
+      payment_status,
+    },
+    {
+      where: {
+        payment_group:
+          booking.payment_group,
+      },
+      transaction,
+    }
+  );
 
 }
 

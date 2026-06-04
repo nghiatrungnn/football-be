@@ -1614,6 +1614,12 @@ const statuses =
     (s) => s.payment_status
   );
 
+  console.log(
+  "STATUSES =>",
+  booking.id,
+  statuses
+);
+
 const refundedCount =
   statuses.filter(
     (s) => s === "refunded"
@@ -1655,6 +1661,15 @@ if (
 
   grouped[key].payment_status =
     "pending";
+
+} else if (
+  statuses.every(
+    (s) => s === "deposit_paid"
+  )
+) {
+
+  grouped[key].payment_status =
+    "deposit_paid";
 
 } else {
 

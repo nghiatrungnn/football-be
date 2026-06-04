@@ -1876,10 +1876,23 @@ if (
   });
 }
 
+let refundAmount = 0;
+
+if (booking.payment_method === "deposit") {
+  refundAmount = booking.deposit_amount || 0;
+} else {
+  refundAmount =
+    booking.final_amount ||
+    booking.total_price ||
+    0;
+}
+
    await booking.update({
   payment_status: "refund_pending",
 
   refund_status: "pending",
+
+  refund_amount: refundAmount,
 
   refund_bank_name: req.body.bank_name,
 

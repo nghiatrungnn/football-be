@@ -1639,7 +1639,7 @@ if (pendingCount > 0) {
 else if (refundedCount > 0) {
 
   grouped[key].payment_status =
-    "partial_refunded";
+    "deposit_paid";
 
 }
 else if (

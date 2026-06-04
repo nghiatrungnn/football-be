@@ -1687,8 +1687,8 @@ else {
 // Ưu tiên lấy booking có thông tin hoàn tiền
 
 if (
-  booking.refund_bank_number &&
-  booking.refund_bank_number.trim() !== ""
+  booking.payment_status ===
+  "refund_pending"
 ) {
 
   grouped[key].refund_bank_name =
@@ -1708,7 +1708,9 @@ if (
 
   grouped[key].refund_amount =
     (grouped[key].refund_amount || 0) +
-    (booking.refund_amount || 0);
+    Number(
+      booking.refund_amount || 0
+    );
 }
 
 const allPending =
@@ -2131,7 +2133,6 @@ if (
     );
 }
   await booking.update({
-  status: "cancelled",
   payment_status: "refunded",
   refund_status: "done",
   refunded_at: new Date(),

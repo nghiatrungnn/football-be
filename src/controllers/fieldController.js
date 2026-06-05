@@ -13,10 +13,26 @@ exports.create = async (
   res
 ) => {
   try {
-    const {
-      pricingRules,
-      ...fieldData
-    } = req.body;
+    let {
+  pricingRules,
+  ...fieldData
+} = req.body;
+
+if (typeof pricingRules === "string") {
+  pricingRules = JSON.parse(pricingRules);
+}
+
+    if (req.files?.image?.length) {
+  fieldData.image =
+    req.files.image[0].path;
+}
+
+if (req.files?.images?.length) {
+  fieldData.images =
+    req.files.images.map(
+      (img) => img.path
+    );
+}
 
     // ================= CREATE FIELD =================
 
@@ -174,10 +190,37 @@ exports.update = async (
         });
     }
 
-    const {
-      pricingRules,
-      ...fieldData
-    } = req.body;
+    let {
+  pricingRules,
+  ...fieldData
+} = req.body;
+
+if (typeof pricingRules === "string") {
+  pricingRules = JSON.parse(pricingRules);
+}
+
+let existingImages = [];
+
+if (req.body.existingImages) {
+  existingImages = JSON.parse(
+    req.body.existingImages
+  );
+}
+
+if (req.files?.image?.length) {
+  fieldData.image =
+    req.files.image[0].path;
+}
+
+const uploadedImages =
+  req.files?.images?.map(
+    (img) => img.path
+  ) || [];
+
+fieldData.images = [
+  ...existingImages,
+  ...uploadedImages,
+];
 
     // ================= UPDATE FIELD =================
 
@@ -343,11 +386,22 @@ const updatedSlots =
       now.getTime();
 
     const pricing =
-      oneField.pricingRules?.find(
-        (p) =>
-          slot.start >= p.start_time &&
-          slot.start < p.end_time
+  oneField.pricingRules?.find((p) => {
+
+    if (
+      p.start_time < p.end_time
+    ) {
+      return (
+        slot.start >= p.start_time &&
+        slot.start < p.end_time
       );
+    }
+
+    return (
+      slot.start >= p.start_time ||
+      slot.start < p.end_time
+    );
+  });
 
     return {
       ...slot,

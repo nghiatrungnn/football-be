@@ -362,25 +362,6 @@ exports.getFieldSlots =
         generateSlots(
           oneField
         );
-
-      const now = new Date(
-  new Date().toLocaleString(
-    "en-US",
-    {
-      timeZone: "Asia/Ho_Chi_Minh",
-    }
-  )
-);
-
-const now = new Date(
-  new Date().toLocaleString(
-    "en-US",
-    {
-      timeZone: "Asia/Ho_Chi_Minh",
-    }
-  )
-);
-
 const now = new Date(
   new Date().toLocaleString(
     "en-US",

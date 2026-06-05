@@ -363,22 +363,70 @@ exports.getFieldSlots =
           oneField
         );
 
-      const now = new Date();
+      const now = new Date(
+  new Date().toLocaleString(
+    "en-US",
+    {
+      timeZone: "Asia/Ho_Chi_Minh",
+    }
+  )
+);
+
+const now = new Date(
+  new Date().toLocaleString(
+    "en-US",
+    {
+      timeZone: "Asia/Ho_Chi_Minh",
+    }
+  )
+);
+
+const now = new Date(
+  new Date().toLocaleString(
+    "en-US",
+    {
+      timeZone: "Asia/Ho_Chi_Minh",
+    }
+  )
+);
 
 const today =
-  new Date()
-    .toLocaleDateString("en-CA");
+  `${now.getFullYear()}-${
+    String(now.getMonth() + 1)
+      .padStart(2, "0")
+  }-${
+    String(now.getDate())
+      .padStart(2, "0")
+  }`;
 
 const selectedDate =
   req.query.date || today;
 
+  console.log("NOW =", now);
+console.log("TODAY =", today);
+console.log(
+  "SELECTED DATE =",
+  selectedDate
+);
+
 const updatedSlots =
   slots.map((slot) => {
 
-    const slotDateTime =
-      new Date(
-        `${selectedDate}T${slot.start}:00`
-      );
+    const [year, month, day] =
+  selectedDate.split("-").map(Number);
+
+const [hour, minute] =
+  slot.start.split(":").map(Number);
+
+const slotDateTime =
+  new Date(
+    year,
+    month - 1,
+    day,
+    hour,
+    minute,
+    0
+  );
 
     const isPast =
       selectedDate === today &&

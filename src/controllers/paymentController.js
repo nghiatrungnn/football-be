@@ -754,6 +754,12 @@ for (const b of bookings) {
     global.emitAvailableSlot
   ) {
 
+console.log(
+  "RELEASE SLOT =>",
+  b.id,
+  b.start_time,
+);
+
     global.emitAvailableSlot(
 
       b.fieldId,

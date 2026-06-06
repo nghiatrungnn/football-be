@@ -700,7 +700,92 @@ for (const b of groupBookings) {
     }
   };
 
+  // =====================================================
+// CANCEL PAYMENT
+// =====================================================
+
+const cancelPayment = async (
+  req,
+  res
+) => {
+
+  try {
+
+    const {
+      bookingIds,
+    } = req.body;
+
+    if (
+      !bookingIds ||
+      !Array.isArray(bookingIds)
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "bookingIds required",
+      });
+    }
+
+    const bookings =
+  await Booking.findAll({
+    where: {
+      id: {
+        [Op.in]:
+          bookingIds,
+      },
+    },
+  });
+
+for (const b of bookings) {
+
+  b.status =
+    "cancelled";
+
+  b.payment_status =
+    "cancelled";
+
+  b.hold_until =
+    null;
+
+  await b.save();
+
+  if (
+    global.emitAvailableSlot
+  ) {
+
+    global.emitAvailableSlot(
+
+      b.fieldId,
+
+      b.start_time,
+
+      b.booking_date,
+
+      b.userId,
+    );
+  }
+}
+
+    return res.json({
+      success: true,
+    });
+
+  } catch (e) {
+
+    console.error(
+      "CANCEL PAYMENT ERROR =>",
+      e,
+    );
+
+    return res.status(500).json({
+      success: false,
+    });
+  }
+};
+
 module.exports = {
   createPayment,
   paymentWebhook,
+  cancelPayment,
 };

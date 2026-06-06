@@ -1,4 +1,4 @@
- const router =
+const router =
   require("express").Router();
 
 const ctrl =
@@ -12,6 +12,11 @@ router.post(
 router.post(
   "/webhook",
   ctrl.paymentWebhook
+);
+
+router.post(
+  "/cancel",
+  ctrl.cancelPayment
 );
 
 module.exports = router;

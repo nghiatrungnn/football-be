@@ -157,15 +157,20 @@ for (const b of bookings) {
       // RETURN URL
       // =====================================================
 
-      const returnUrl =
-        platform === "web"
-          ? "http://localhost:3000"
-          : "http://localhost:3000/#/home";
+      console.log(
+  "PLATFORM =>",
+  platform
+);
 
-      const cancelUrl =
-        platform === "web"
-          ? "http://localhost:3000"
-          : "http://localhost:3000/#/home";
+const returnUrl =
+  platform === "web"
+    ? "http://localhost:3000"
+    : "footballbooking://payment-success";
+
+const cancelUrl =
+  platform === "web"
+    ? "http://localhost:3000"
+    : "footballbooking://payment-cancel";
 
       // =====================================================
       // BODY
@@ -487,8 +492,31 @@ await Booking.findAll({
   transaction,
 });
 
-// KIỂM TRA BOOKING ĐÃ HỦY CHƯA
+// =====================================================
+// CHECK EXPIRED HOLD
+// =====================================================
 
+const now = new Date();
+
+const hasExpired =
+  groupBookings.some(
+    (b) =>
+      !b.hold_until ||
+      new Date(b.hold_until) < now
+  );
+
+if (hasExpired) {
+
+  await transaction.rollback();
+
+  console.log(
+    "BOOKING EXPIRED - IGNORE PAYMENT"
+  );
+
+  return res.send("OK");
+}
+
+// KIỂM TRA BOOKING ĐÃ HỦY CHƯA
 const hasCancelled =
   groupBookings.some(
     (b) =>

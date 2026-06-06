@@ -79,7 +79,8 @@ end_time: {
     "refunded",
     "refund_pending",
     "refund_rejected",
-    "cancelled"
+    "cancelled",
+    "expired"
   ),
 
       allowNull: false,

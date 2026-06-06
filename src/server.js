@@ -368,11 +368,15 @@ setInterval(async () => {
       return;
 
     for (const b of expired) {
-      await Booking.destroy({
-        where: {
-          id: b.id,
-        },
-      });
+
+  b.status = "cancelled";
+
+  b.payment_status =
+    "expired";
+
+  b.hold_until = null;
+
+  await b.save();
 
       // ================= REALTIME =================
       io.to(

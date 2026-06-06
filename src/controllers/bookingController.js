@@ -175,7 +175,14 @@ refunded_at:
           });
         }
 
-        await b.destroy();
+        b.status = "cancelled";
+
+b.payment_status =
+  "expired";
+
+b.hold_until = null;
+
+await b.save();
       }
 
       if (

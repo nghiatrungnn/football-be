@@ -1626,28 +1626,18 @@ const statuses =
     (s) => s.payment_status
   );
 
-  console.log(
-  "STATUSES =>",
-  booking.id,
-  statuses
-);
-
-const refundedCount =
-  statuses.filter(
-    (s) => s === "refunded"
-  ).length;
-
-const pendingCount =
-  statuses.filter(
-    (s) => s === "refund_pending"
-  ).length;
-
-if (pendingCount > 0) {
+if (
+  statuses.includes(
+    "refund_pending"
+  )
+) {
 
   grouped[key].payment_status =
     "refund_pending";
 
 }
+
+// TẤT CẢ ĐÃ HOÀN
 else if (
   statuses.every(
     (s) => s === "refunded"
@@ -1658,17 +1648,11 @@ else if (
     "refunded";
 
 }
-else if (
-  statuses.includes("paid")
-) {
 
-  grouped[key].payment_status =
-    "paid";
-
-}
+// CÒN SLOT ĐÃ CỌC
 else if (
-  statuses.every(
-    (s) => s === "deposit_paid"
+  statuses.includes(
+    "deposit_paid"
   )
 ) {
 
@@ -1676,6 +1660,19 @@ else if (
     "deposit_paid";
 
 }
+
+// CÒN SLOT ĐÃ THANH TOÁN ĐỦ
+else if (
+  statuses.includes(
+    "paid"
+  )
+) {
+
+  grouped[key].payment_status =
+    "paid";
+
+}
+
 else if (
   statuses.includes(
     "refund_rejected"
@@ -1686,6 +1683,7 @@ else if (
     "refund_rejected";
 
 }
+
 else if (
   statuses.every(
     (s) => s === "pending"
@@ -1696,10 +1694,11 @@ else if (
     "pending";
 
 }
+
 else {
 
   grouped[key].payment_status =
-    "paid";
+    "pending";
 
 }
 

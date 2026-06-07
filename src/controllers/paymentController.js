@@ -164,12 +164,12 @@ for (const b of bookings) {
 
 const returnUrl =
   platform === "web"
-    ? "https://datn-w9iy-nq07tgd4w-hoang-tu-s-projects.vercel.app/payment-success"
+    ? "https://datn-w9iy-nq07tgd4w-hoang-tu-s-projects.vercel.app"
     : "footballbooking://payment-success";
 
 const cancelUrl =
   platform === "web"
-    ? "https://datn-w9iy-nq07tgd4w-hoang-tu-s-projects.vercel.app/payment-cancel"
+    ? "https://datn-w9iy-nq07tgd4w-hoang-tu-s-projects.vercel.app"
     : "footballbooking://payment-cancel";
 
       // =====================================================

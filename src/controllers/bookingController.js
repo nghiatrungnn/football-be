@@ -1648,7 +1648,29 @@ if (pendingCount > 0) {
     "refund_pending";
 
 }
-else if (refundedCount > 0) {
+else if (
+  statuses.every(
+    (s) => s === "refunded"
+  )
+) {
+
+  grouped[key].payment_status =
+    "refunded";
+
+}
+else if (
+  statuses.includes("paid")
+) {
+
+  grouped[key].payment_status =
+    "paid";
+
+}
+else if (
+  statuses.every(
+    (s) => s === "deposit_paid"
+  )
+) {
 
   grouped[key].payment_status =
     "deposit_paid";
@@ -1662,16 +1684,6 @@ else if (
 
   grouped[key].payment_status =
     "refund_rejected";
-
-}
-else if (
-  statuses.every(
-    (s) => s === "deposit_paid"
-  )
-) {
-
-  grouped[key].payment_status =
-    "deposit_paid";
 
 }
 else if (

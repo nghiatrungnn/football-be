@@ -1,34 +1,69 @@
+// ======================================================
+// Đọc biến môi trường từ file .env
+// Ví dụ:
+// PORT=5000
+// DB_HOST=localhost
+// ======================================================
 require("dotenv").config();
 
+// ======================================================
+// IMPORT THƯ VIỆN
+// ======================================================
+
+// Tạo HTTP Server
 const http = require("http");
 
+// SocketIO dùng cho realtime
 const { Server } = require("socket.io");
 
+// Sequelize Operators
 const { Op } = require("sequelize");
 
+// Express App
 const app = require("./app");
 
+// Toàn bộ Models
 const db = require("./models");
 
-const sequelize =
-  db.sequelize;
+// ======================================================
+// MODELS
+// ======================================================
 
+// Instance sequelize chính
+const sequelize = db.sequelize;
+
+// Model Notification
 const Notification =
   require("./models/notification");
 
+// Model Booking
 const {
   booking: Booking,
 } = db;
 
-// ================= SERVER =================
+// ======================================================
+// TẠO HTTP SERVER
+// ======================================================
+//
+// Express sẽ chạy bên trong server này
+//
 const server =
   http.createServer(app);
 
-// ================= SOCKET.IO =================
+// ======================================================
+// KHỞI TẠO SOCKET.IO
+// ======================================================
+//
+// Cho phép Flutter, Web, Mobile
+// kết nối realtime tới backend
+//
 const io = new Server(server, {
   cors: {
+
+    // Cho phép mọi domain kết nối
     origin: "*",
 
+    // Các phương thức HTTP được phép
     methods: [
       "GET",
       "POST",
@@ -36,52 +71,99 @@ const io = new Server(server, {
       "DELETE",
     ],
 
+    // Cho phép credentials
     credentials: true,
   },
 });
 
+// ======================================================
+// Đưa io vào app
+// Để có thể:
+// req.app.get("io")
+// ======================================================
 app.set("io", io);
 
+// ======================================================
+// Middleware gắn io vào request
+//
+// Sau đó trong controller:
+//
+// req.io.emit(...)
+// ======================================================
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// ================= HOLD CONFIG =================
+// ======================================================
+// CẤU HÌNH GIỮ SLOT
+// ======================================================
+//
+// Khi người dùng chọn giờ
+// hệ thống giữ trong 5 phút
+//
+// Nếu không thanh toán
+// sẽ tự động huỷ
+//
 const HOLD_MINUTES = 5;
 
-// =====================================================
+// ======================================================
 // SOCKET EVENTS
-// =====================================================
-
+// ======================================================
 io.on("connection", (socket) => {
+
   console.log(
     "🔥 User connected:",
     socket.id
   );
 
-  // ================= JOIN USER =================
-socket.on(
-  "join_user",
-  (userId) => {
+  // ==================================================
+  // JOIN USER ROOM
+  // ==================================================
+  //
+  // Mỗi user có 1 room riêng
+  //
+  // user_1
+  // user_2
+  // user_3
+  //
+  // Dùng để gửi notification realtime
+  //
+  socket.on(
+    "join_user",
+    (userId) => {
 
-    if (!userId) return;
+      // Không có userId thì bỏ qua
+      if (!userId) return;
 
-    socket.join(
-      `user_${userId}`
-    );
+      // Join room user
+      socket.join(
+        `user_${userId}`
+      );
 
-    console.log(
-      `👤 USER JOINED: user_${userId}`
-    );
+      console.log(
+        `👤 USER JOINED: user_${userId}`
+      );
+    }
+  );
 
-  }
-);
-
-  // ================= JOIN FIELD =================
+  // ==================================================
+  // JOIN FIELD ROOM
+  // ==================================================
+  //
+  // Khi mở màn hình chi tiết sân
+  //
+  // field-1
+  // field-2
+  // field-3
+  //
+  // Sau đó mọi thay đổi slot
+  // sẽ realtime tới room này
+  //
   socket.on(
     "join_field",
     (fieldId) => {
+
       if (!fieldId) return;
 
       socket.join(
@@ -94,10 +176,18 @@ socket.on(
     }
   );
 
-  // ================= LEAVE FIELD =================
+  // ==================================================
+  // LEAVE FIELD ROOM
+  // ==================================================
+  //
+  // Khi thoát màn hình chi tiết sân
+  //
+  // Ngừng nhận realtime
+  //
   socket.on(
     "leave_field",
     (fieldId) => {
+
       if (!fieldId) return;
 
       socket.leave(
@@ -106,14 +196,29 @@ socket.on(
     }
   );
 
-  // ================= HOLD SLOT =================
+  // ==================================================
+  // HOLD SLOT
+  // ==================================================
+  //
+  // Người dùng chọn khung giờ
+  //
+  // 1. Tạo booking holding
+  // 2. Giữ 5 phút
+  // 3. Realtime cho mọi người
+  //
   socket.on(
     "hold_slot",
     async (data) => {
+
       try {
+
+        // Không có sân
         if (!data?.field_id)
           return;
 
+        // ==========================================
+        // Tính thời gian hết hạn hold
+        // ==========================================
         const holdUntil =
           new Date(
             Date.now() +
@@ -122,7 +227,10 @@ socket.on(
                 1000
           );
 
-        // ================= REMOVE OLD HOLD =================
+        // ==========================================
+        // Xoá hold cũ cùng khung giờ
+        // Tránh trùng dữ liệu
+        // ==========================================
         await Booking.destroy({
           where: {
             fieldId:
@@ -136,8 +244,11 @@ socket.on(
           },
         });
 
-        // ================= CREATE HOLD =================
+        // ==========================================
+        // Tạo booking holding mới
+        // ==========================================
         await Booking.create({
+
           fieldId:
             data.field_id,
 
@@ -162,8 +273,15 @@ socket.on(
           hold_until:
             holdUntil,
         });
-
-        // ================= REALTIME =================
+                // ==========================================
+        // REALTIME UPDATE
+        // ==========================================
+        //
+        // Thông báo cho toàn bộ client
+        // đang xem sân này biết rằng:
+        //
+        // Slot đã được giữ
+        //
         io.to(
           `field-${data.field_id}`
         ).emit(
@@ -193,25 +311,42 @@ socket.on(
           "🟠 HOLD SLOT:",
           data.start_time
         );
+
       } catch (err) {
+
         console.error(
           "❌ HOLD SLOT ERROR:",
           err
         );
+
       }
     }
   );
 
-  // ================= RELEASE SLOT =================
+  // ==================================================
+  // RELEASE SLOT
+  // ==================================================
+  //
+  // Người dùng bỏ chọn giờ
+  //
+  // Xoá trạng thái holding
+  // và trả slot về available
+  //
   socket.on(
     "release_slot",
     async (data) => {
+
       try {
+
         if (!data?.field_id)
           return;
 
+        // ==========================================
+        // Xoá booking holding
+        // ==========================================
         await Booking.destroy({
           where: {
+
             fieldId:
               data.field_id,
 
@@ -223,11 +358,15 @@ socket.on(
           },
         });
 
+        // ==========================================
+        // Realtime trạng thái available
+        // ==========================================
         io.to(
           `field-${data.field_id}`
         ).emit(
           "slot_update",
           {
+
             field_id:
               data.field_id,
 
@@ -249,25 +388,44 @@ socket.on(
           "⚪ RELEASE SLOT:",
           data.start_time
         );
+
       } catch (err) {
+
         console.error(
           "❌ RELEASE SLOT ERROR:",
           err
         );
+
       }
     }
   );
 
-  // ================= BOOK SLOT =================
+  // ==================================================
+  // BOOK SLOT
+  // ==================================================
+  //
+  // Được gọi sau khi:
+  //
+  // Thanh toán thành công
+  //
+  // holding -> booked
+  //
   socket.on(
     "book_slot",
     async (data) => {
+
       try {
+
         if (!data?.field_id)
           return;
 
+        // ==========================================
+        // Chuyển booking từ holding
+        // sang booked
+        // ==========================================
         await Booking.update(
           {
+
             status:
               "booked",
 
@@ -280,6 +438,7 @@ socket.on(
 
           {
             where: {
+
               fieldId:
                 data.field_id,
 
@@ -295,12 +454,15 @@ socket.on(
           }
         );
 
-        // ================= REALTIME =================
+        // ==========================================
+        // Realtime trạng thái booked
+        // ==========================================
         io.to(
           `field-${data.field_id}`
         ).emit(
           "slot_update",
           {
+
             field_id:
               data.field_id,
 
@@ -322,23 +484,33 @@ socket.on(
           "🔴 BOOKED:",
           data.start_time
         );
+
       } catch (err) {
+
         console.error(
           "❌ BOOK SLOT ERROR:",
           err
         );
+
       }
     }
   );
 
-  // ================= DISCONNECT =================
+  // ==================================================
+  // DISCONNECT
+  // ==================================================
+  //
+  // Người dùng ngắt kết nối socket
+  //
   socket.on(
     "disconnect",
     () => {
+
       console.log(
         "❌ User disconnected:",
         socket.id
       );
+
     }
   );
 });
@@ -346,15 +518,33 @@ socket.on(
 // =====================================================
 // AUTO EXPIRE HOLD
 // =====================================================
-
+//
+// Chạy mỗi 5 giây
+//
+// Nhiệm vụ:
+//
+// Tìm các booking holding
+// đã hết hạn
+//
+// holding -> cancelled
+//
+// Đồng thời realtime
+// trả slot về available
+//
 setInterval(async () => {
+
   try {
+
     const now =
       new Date();
 
+    // ==============================================
+    // Lấy danh sách booking holding hết hạn
+    // ==============================================
     const expired =
       await Booking.findAll({
         where: {
+
           status:
             "holding",
 
@@ -364,26 +554,36 @@ setInterval(async () => {
         },
       });
 
+    // Không có booking hết hạn
     if (!expired.length)
       return;
 
+    // ==============================================
+    // Xử lý từng booking
+    // ==============================================
     for (const b of expired) {
 
-  b.status = "cancelled";
+      // Chuyển trạng thái
+      b.status =
+        "cancelled";
 
-  b.payment_status =
-    "expired";
+      b.payment_status =
+        "expired";
 
-  b.hold_until = null;
+      b.hold_until =
+        null;
 
-  await b.save();
+      await b.save();
 
-      // ================= REALTIME =================
+      // ==========================================
+      // Realtime trả slot về available
+      // ==========================================
       io.to(
         `field-${b.fieldId}`
       ).emit(
         "slot_update",
         {
+
           field_id:
             b.fieldId,
 
@@ -406,89 +606,139 @@ setInterval(async () => {
         b.start_time
       );
     }
+
   } catch (err) {
+
     console.error(
       "❌ AUTO EXPIRE ERROR:",
       err
     );
+
   }
+
 }, 5000);
 
 // =====================================================
 // GLOBAL REALTIME HELPERS
 // =====================================================
+//
+// Các hàm global để controller
+// hoặc service có thể gọi trực tiếp
+//
+// global.emitBookedSlot(...)
+// global.emitHoldingSlot(...)
+// global.emitAvailableSlot(...)
+//
 
+// Emit trạng thái booked
 global.emitBookedSlot = (
   fieldId,
   startTime,
   bookingDate,
   userId
 ) => {
+
   io.to(
     `field-${fieldId}`
-  ).emit("slot_update", {
-    field_id: fieldId,
+  ).emit(
+    "slot_update",
+    {
 
-    booking_date:
-      bookingDate,
+      field_id:
+        fieldId,
 
-    time: startTime,
+      booking_date:
+        bookingDate,
 
-    status: "booked",
+      time:
+        startTime,
 
-    userId,
-  });
+      status:
+        "booked",
+
+      userId,
+    }
+  );
 };
 
+// Emit trạng thái holding
 global.emitHoldingSlot = (
   fieldId,
   startTime,
   bookingDate,
   userId
 ) => {
+
   io.to(
     `field-${fieldId}`
-  ).emit("slot_update", {
-    field_id: fieldId,
+  ).emit(
+    "slot_update",
+    {
 
-    booking_date:
-      bookingDate,
+      field_id:
+        fieldId,
 
-    time: startTime,
+      booking_date:
+        bookingDate,
 
-    status: "holding",
+      time:
+        startTime,
 
-    userId,
-  });
+      status:
+        "holding",
+
+      userId,
+    }
+  );
 };
 
+// Emit trạng thái available
 global.emitAvailableSlot = (
   fieldId,
   startTime,
   bookingDate,
   userId
 ) => {
+
   io.to(
     `field-${fieldId}`
-  ).emit("slot_update", {
-    field_id: fieldId,
+  ).emit(
+    "slot_update",
+    {
 
-    booking_date:
-      bookingDate,
+      field_id:
+        fieldId,
 
-    time: startTime,
+      booking_date:
+        bookingDate,
 
-    status:
-      "available",
+      time:
+        startTime,
 
-    userId,
-  });
+      status:
+        "available",
+
+      userId,
+    }
+  );
 };
 
 // =====================================================
 // USER NOTIFICATION
 // =====================================================
-
+//
+// Gửi thông báo realtime
+// tới đúng user
+//
+// Ví dụ:
+//
+// emitNotification(
+//   5,
+//   notification
+// )
+//
+// -> user_5 nhận được
+//
 global.emitNotification = (
   userId,
   notification,
@@ -507,22 +757,36 @@ global.emitNotification = (
 };
 
 // =====================================================
-// START SERVER
+// KHỞI ĐỘNG SERVER
 // =====================================================
 
 const PORT =
   process.env.PORT || 5000;
 
+// =====================================================
+// START SERVER
+// =====================================================
+//
+// 1. Kết nối Database
+// 2. Sync Model
+// 3. Mở Server
+//
 async function startServer() {
+
   try {
-    // ================= DB =================
+
+    // ==========================================
+    // Kiểm tra kết nối DB
+    // ==========================================
     await sequelize.authenticate();
 
     console.log(
       "✅ Database connected"
     );
 
-    // ================= SYNC =================
+    // ==========================================
+    // Đồng bộ model
+    // ==========================================
     await sequelize.sync({
       alter: true,
     });
@@ -531,13 +795,19 @@ async function startServer() {
       "🔥 DB synced"
     );
 
-    // ================= SERVER =================
+    // ==========================================
+    // Khởi động server
+    // ==========================================
     server.listen(PORT, () => {
+
       console.log(
         `🚀 Server running on port ${PORT}`
       );
+
     });
+
   } catch (err) {
+
     console.error(
       "❌ Server start error:",
       err
@@ -547,4 +817,7 @@ async function startServer() {
   }
 }
 
+// =====================================================
+// CHẠY SERVER
+// =====================================================
 startServer();

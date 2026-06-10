@@ -4,12 +4,30 @@ const Notification =
 const { Op } =
   require("sequelize");
 
-// ================= CREATE =================
 
+// =====================================================
+// CREATE NOTIFICATION
+// =====================================================
+//
+// Chức năng:
+//
+// Tạo thông báo mới.
+//
+// Dùng khi:
+//
+// - Đặt sân thành công
+// - Hủy sân
+// - Thanh toán thành công
+// - Thông báo hệ thống
+//
 const createNotification =
+
   async ({
+
     userId,
+
     title,
+
     message,
 
     type = "system",
@@ -26,7 +44,12 @@ const createNotification =
 
   }) => {
 
+    // =====================================================
+    // TẠO THÔNG BÁO
+    // =====================================================
+    //
     const notification =
+
       await Notification.create({
 
         userId,
@@ -44,180 +67,383 @@ const createNotification =
         referenceId,
 
         isRead,
-        
+
         isGlobal,
+
       });
+
 
     return notification;
   };
 
-// ================= GET ALL =================
 
+// =====================================================
+// GET ALL NOTIFICATIONS
+// =====================================================
+//
+// Chức năng:
+//
+// Lấy toàn bộ thông báo.
+//
+// Thường dùng cho Admin.
+//
 const getAllNotifications =
+
   async () => {
 
     return await Notification.findAll({
 
       order: [
-        ["createdAt", "DESC"],
+
+        [
+
+          "createdAt",
+
+          "DESC",
+
+        ],
+
       ],
 
     });
-
   };
 
-// ================= GET MY =================
 
+// =====================================================
+// GET MY NOTIFICATIONS
+// =====================================================
+//
+// Chức năng:
+//
+// Lấy thông báo của user.
+//
+// Bao gồm:
+//
+// - thông báo riêng
+// - thông báo toàn hệ thống
+//
 const getMyNotifications =
-  async (userId) => {
+
+  async (
+
+    userId
+
+  ) => {
 
     return await Notification.findAll({
 
       where: {
 
-  [Op.or]: [
+        [Op.or]: [
 
-    {
-      userId,
-    },
+          {
+            userId,
+          },
 
-    {
-      isGlobal: true,
-    },
-  ],
-},
+          {
+            isGlobal: true,
+          },
+
+        ],
+
+      },
 
       order: [
-        ["createdAt", "DESC"],
+
+        [
+
+          "createdAt",
+
+          "DESC",
+
+        ],
+
       ],
 
     });
-
   };
 
-// ================= GET BY ID =================
 
+// =====================================================
+// GET NOTIFICATION BY ID
+// =====================================================
+//
+// Chức năng:
+//
+// Lấy chi tiết một thông báo.
+//
 const getNotificationById =
-  async (id) => {
+
+  async (
+
+    id
+
+  ) => {
 
     return await Notification.findByPk(
+
       id
+
     );
-
   };
 
-// ================= UPDATE =================
 
+// =====================================================
+// UPDATE NOTIFICATION
+// =====================================================
+//
+// Chức năng:
+//
+// Cập nhật thông báo.
+//
 const updateNotification =
-  async (id, data) => {
 
-    const notification =
-      await Notification.findByPk(id);
-
-    if (!notification) {
-      return null;
-    }
-
-    await notification.update(data);
-
-    return notification;
-
-  };
-
-// ================= READ =================
-
-const markAsRead =
-  async (id) => {
-
-    const notification =
-      await Notification.findOne({
-
-        where: {
-          id,
-        },
-
-      });
-
-    if (!notification) {
-      return null;
-    }
-
-    notification.isRead = true;
-
-    await notification.save();
-
-    return notification;
-
-  };
-
-// ================= READ ALL =================
-
-const markAllAsRead =
-  async (userId) => {
-
-    const result =
-      await Notification.update(
-
-        {
-          isRead: true,
-        },
-
-        {
-          where: {
-            userId,
-            isRead: false,
-          },
-        }
-      );
-
-    return result;
-  };
-
-// ================= DELETE =================
-
-const deleteNotification =
   async (
+
     id,
+
+    data
+
   ) => {
 
     const notification =
-      await Notification.findOne({
 
-        where: {
-          id,
-        },
+      await Notification.findByPk(
 
-      });
+        id
 
-    if (!notification) {
+      );
+
+
+    // =====================================================
+    // KHÔNG TÌM THẤY
+    // =====================================================
+    //
+    if (
+
+      !notification
+
+    ) {
+
       return null;
     }
 
-    await notification.destroy();
 
-    return true;
+    // =====================================================
+    // UPDATE
+    // =====================================================
+    //
+    await notification.update(
 
+      data
+
+    );
+
+
+    return notification;
   };
 
-  // ================= DELETE ALL =================
 
-const deleteAllNotifications =
-  async (userId) => {
+// =====================================================
+// MARK AS READ
+// =====================================================
+//
+// Chức năng:
+//
+// Đánh dấu đã đọc
+// cho một thông báo.
+//
+const markAsRead =
 
-    const result =
-      await Notification.destroy({
+  async (
+
+    id
+
+  ) => {
+
+    const notification =
+
+      await Notification.findOne({
 
         where: {
-          userId,
+
+          id,
+
         },
 
       });
 
-    return result;
 
+    // =====================================================
+    // KHÔNG TÌM THẤY
+    // =====================================================
+    //
+    if (
+
+      !notification
+
+    ) {
+
+      return null;
+    }
+
+
+    // =====================================================
+    // ĐÁNH DẤU ĐÃ ĐỌC
+    // =====================================================
+    //
+    notification.isRead =
+
+      true;
+
+
+    await notification.save();
+
+
+    return notification;
   };
 
+
+// =====================================================
+// MARK ALL AS READ
+// =====================================================
+//
+// Chức năng:
+//
+// Đánh dấu tất cả thông báo
+// của user là đã đọc.
+//
+const markAllAsRead =
+
+  async (
+
+    userId
+
+  ) => {
+
+    const result =
+
+      await Notification.update(
+
+        {
+
+          isRead: true,
+
+        },
+
+        {
+
+          where: {
+
+            userId,
+
+            isRead: false,
+
+          },
+
+        }
+
+      );
+
+
+    return result;
+  };
+
+
+// =====================================================
+// DELETE NOTIFICATION
+// =====================================================
+//
+// Chức năng:
+//
+// Xóa một thông báo.
+//
+const deleteNotification =
+
+  async (
+
+    id,
+
+  ) => {
+
+    const notification =
+
+      await Notification.findOne({
+
+        where: {
+
+          id,
+
+        },
+
+      });
+
+
+    // =====================================================
+    // KHÔNG TÌM THẤY
+    // =====================================================
+    //
+    if (
+
+      !notification
+
+    ) {
+
+      return null;
+    }
+
+
+    // =====================================================
+    // XÓA
+    // =====================================================
+    //
+    await notification.destroy();
+
+
+    return true;
+  };
+
+
+// =====================================================
+// DELETE ALL NOTIFICATIONS
+// =====================================================
+//
+// Chức năng:
+//
+// Xóa toàn bộ thông báo
+// của user.
+//
+const deleteAllNotifications =
+
+  async (
+
+    userId
+
+  ) => {
+
+    const result =
+
+      await Notification.destroy({
+
+        where: {
+
+          userId,
+
+        },
+
+      });
+
+
+    return result;
+  };
+
+
+// =====================================================
+// EXPORT
+// =====================================================
+
 module.exports = {
+
   createNotification,
 
   getAllNotifications,
@@ -235,4 +461,5 @@ module.exports = {
   deleteNotification,
 
   deleteAllNotifications,
+
 };

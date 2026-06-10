@@ -1,0 +1,10 @@
+// // Các toán tử Sequelize
+// const { Op } =
+//   require("sequelize");
+
+// Ví dụ:
+
+// Op.gt   // >
+// Op.lt   // <
+// Op.in   // IN
+// Op.notIn // NOT IN

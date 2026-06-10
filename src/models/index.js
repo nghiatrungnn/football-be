@@ -9,7 +9,18 @@ const userVoucher =
   require("./userVoucher");
 const voucher = require("./voucher");
 const Review = require("./review");
-const Notification = require("./notification");
+console.log(
+  "Path:",
+  require.resolve("./notification")
+);
+
+const Notification =
+  require("./notification");
+
+console.log(
+  "Notification:",
+  Notification
+);
 
 // ===============================
 // RELATIONSHIPS

@@ -4,242 +4,368 @@ const voucher =
 const userVoucher =
   require("../models/userVoucher");
 
+
 // =====================================================
 // VALIDATE VOUCHER
 // =====================================================
-
+//
+// Chức năng:
+//
+// Kiểm tra voucher có hợp lệ không.
+//
+// Trả về:
+//
+// valid
+// message
+// discount
+// finalAmount
+//
 const validateVoucher =
+
   async ({
+
     code,
+
     amount,
+
     userId,
+
     transaction,
+
   }) => {
 
-    // =====================================================
-    // FIND + LOCK
-    // =====================================================
 
+    // =====================================================
+    // TÌM VOUCHER + KHÓA DỮ LIỆU
+    // =====================================================
+    //
+    // lock UPDATE:
+    //
+    // tránh nhiều người dùng
+    // voucher cùng lúc gây sai usedCount.
+    //
     const foundVoucher =
+
       await voucher.findOne({
+
         where: {
+
           code,
+
         },
 
         transaction,
 
         lock:
+
           transaction?.LOCK
+
             ?.UPDATE,
+
       });
 
-    // =====================================================
-    // NOT FOUND
-    // =====================================================
-
-    if (!foundVoucher) {
-
-      return {
-        valid: false,
-
-        message:
-          "Voucher không tồn tại",
-      };
-    }
 
     // =====================================================
-    // INACTIVE
+    // KHÔNG TỒN TẠI
     // =====================================================
-
+    //
     if (
-      !foundVoucher.isActive
+
+      !foundVoucher
+
     ) {
 
       return {
+
         valid: false,
 
         message:
-          "Voucher đã bị khóa",
+
+          "Voucher không tồn tại",
+
       };
     }
+
+
+    // =====================================================
+    // VOUCHER BỊ KHÓA
+    // =====================================================
+    //
+    if (
+
+      !foundVoucher.isActive
+
+    ) {
+
+      return {
+
+        valid: false,
+
+        message:
+
+          "Voucher đã bị khóa",
+
+      };
+    }
+
 
     const now =
+
       new Date();
 
-    // =====================================================
-    // NOT STARTED
-    // =====================================================
 
+    // =====================================================
+    // CHƯA ĐẾN NGÀY SỬ DỤNG
+    // =====================================================
+    //
     if (
+
       now <
+
       foundVoucher.startDate
+
     ) {
 
       return {
+
         valid: false,
 
         message:
+
           "Voucher chưa bắt đầu",
+
       };
     }
 
-    // =====================================================
-    // EXPIRED
-    // =====================================================
 
+    // =====================================================
+    // HẾT HẠN
+    // =====================================================
+    //
     if (
+
       now >
+
       foundVoucher.endDate
+
     ) {
 
       return {
+
         valid: false,
 
         message:
+
           "Voucher đã hết hạn",
+
       };
     }
 
-    // =====================================================
-    // USAGE LIMIT
-    // =====================================================
 
+    // =====================================================
+    // HẾT LƯỢT SỬ DỤNG
+    // =====================================================
+    //
     if (
+
       foundVoucher.usedCount >=
+
       foundVoucher.usageLimit
+
     ) {
 
       return {
+
         valid: false,
 
         message:
+
           "Voucher đã hết lượt sử dụng",
+
       };
     }
 
-    // =====================================================
-    // MIN AMOUNT
-    // =====================================================
 
+    // =====================================================
+    // KIỂM TRA GIÁ TRỊ ĐƠN HÀNG
+    // =====================================================
+    //
     if (
+
       amount <
+
       foundVoucher.minAmount
+
     ) {
 
       return {
+
         valid: false,
 
         message:
+
           `Đơn tối thiểu ${foundVoucher.minAmount}`,
+
       };
     }
 
-    // =====================================================
-    // ONE TIME PER USER
-    // =====================================================
 
+    // =====================================================
+    // MỖI USER CHỈ DÙNG 1 LẦN
+    // =====================================================
+    //
     if (
+
       foundVoucher
+
         .isOneTimePerUser &&
+
       userId
+
     ) {
 
       const existed =
+
         await userVoucher.findOne({
+
           where: {
+
             userId,
 
             voucherId:
+
               foundVoucher.id,
+
           },
 
           transaction,
+
         });
 
-      if (existed) {
+
+      if (
+
+        existed
+
+      ) {
 
         return {
+
           valid: false,
 
           message:
+
             "Bạn đã dùng voucher này",
+
         };
       }
     }
 
-    // =====================================================
-    // CALCULATE DISCOUNT
-    // =====================================================
 
+    // =====================================================
+    // TÍNH GIẢM GIÁ
+    // =====================================================
+    //
     let discount = 0;
 
-    // =====================================================
-    // PERCENT
-    // =====================================================
 
+    // =====================================================
+    // GIẢM THEO %
+    // =====================================================
+    //
     if (
+
       foundVoucher.type ===
+
       "percent"
+
     ) {
 
       discount =
-        (amount *
-          foundVoucher.value) /
-        100;
+
+        (
+
+          amount *
+
+          foundVoucher.value
+
+        ) / 100;
+
 
       // =====================================================
-      // MAX DISCOUNT
+      // GIẢM TỐI ĐA
       // =====================================================
-
+      //
       if (
-        foundVoucher.maxDiscount >
-          0 &&
+
+        foundVoucher.maxDiscount > 0 &&
+
         discount >
-          foundVoucher.maxDiscount
+
+        foundVoucher.maxDiscount
+
       ) {
 
         discount =
+
           foundVoucher.maxDiscount;
       }
     }
 
-    // =====================================================
-    // FIXED
-    // =====================================================
 
+    // =====================================================
+    // GIẢM THEO TIỀN CỐ ĐỊNH
+    // =====================================================
+    //
     if (
+
       foundVoucher.type ===
+
       "fixed"
+
     ) {
 
       discount =
+
         foundVoucher.value;
     }
 
-    // =====================================================
-    // FINAL AMOUNT
-    // =====================================================
 
+    // =====================================================
+    // TÍNH TIỀN CUỐI CÙNG
+    // =====================================================
+    //
     let finalAmount =
-      amount - discount;
+
+      amount -
+
+      discount;
+
 
     // =====================================================
-    // NO NEGATIVE
+    // KHÔNG ÂM
     // =====================================================
+    //
+    if (
 
-    if (finalAmount < 0) {
+      finalAmount < 0
+
+    ) {
 
       finalAmount = 0;
     }
 
-    // =====================================================
-    // SUCCESS
-    // =====================================================
 
+    // =====================================================
+    // THÀNH CÔNG
+    // =====================================================
+    //
     return {
+
       valid: true,
 
       message:
+
         "Áp dụng voucher thành công",
 
       discount,
@@ -247,89 +373,157 @@ const validateVoucher =
       finalAmount,
 
       voucher:
+
         foundVoucher,
+
     };
   };
 
-// =====================================================
-// INCREASE USED COUNT
-// =====================================================
 
+// =====================================================
+// TĂNG SỐ LẦN ĐÃ SỬ DỤNG
+// =====================================================
+//
+// usedCount += 1
+//
 const increaseVoucherUsedCount =
+
   async ({
+
     voucherCode,
+
     transaction,
+
   }) => {
 
-    if (!voucherCode) return;
+    if (
+
+      !voucherCode
+
+    ) return;
+
 
     const foundVoucher =
+
       await voucher.findOne({
+
         where: {
+
           code:
+
             voucherCode,
+
         },
 
         transaction,
 
         lock:
+
           transaction?.LOCK
+
             ?.UPDATE,
+
       });
 
-    if (!foundVoucher)
-      return;
+
+    if (
+
+      !foundVoucher
+
+    ) return;
+
 
     foundVoucher.usedCount += 1;
 
+
     await foundVoucher.save({
+
       transaction,
+
     });
   };
 
-// =====================================================
-// CREATE USER VOUCHER HISTORY
-// =====================================================
 
+// =====================================================
+// LƯU LỊCH SỬ USER DÙNG VOUCHER
+// =====================================================
+//
+// Dùng để:
+//
+// kiểm tra OneTimePerUser.
+//
 const createUserVoucher =
+
   async ({
+
     userId,
+
     voucherCode,
+
     bookingId,
+
     transaction,
+
   }) => {
 
-    if (!voucherCode)
-      return;
+    if (
+
+      !voucherCode
+
+    ) return;
+
 
     const foundVoucher =
+
       await voucher.findOne({
+
         where: {
+
           code:
+
             voucherCode,
+
         },
 
         transaction,
+
       });
 
-    if (!foundVoucher)
-      return;
+
+    if (
+
+      !foundVoucher
+
+    ) return;
+
 
     await userVoucher.create(
+
       {
+
         userId,
 
         voucherId:
+
           foundVoucher.id,
 
         bookingId,
+
       },
 
       {
+
         transaction,
+
       }
+
     );
   };
+
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = {
 
@@ -338,4 +532,5 @@ module.exports = {
   increaseVoucherUsedCount,
 
   createUserVoucher,
+
 };

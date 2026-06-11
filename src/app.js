@@ -55,7 +55,7 @@ app.use("/api/payments", paymentRoutes);
 // voucher routes
 app.use("/api/vouchers", voucherRoutes);
 
-// notification route
+// notification routeS
 app.use("/api/notifications", notificationRoutes);
 
 

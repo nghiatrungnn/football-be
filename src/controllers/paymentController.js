@@ -42,6 +42,7 @@ const {
   booking: Booking,
   user: User,
   field: Field,
+  voucher: Voucher,
 } = require("../models");
 
 
@@ -1174,7 +1175,7 @@ if (
 ) {
 
   const foundVoucher =
-  await voucher.findOne({
+  await Voucher.findOne({
 
     where: {
 

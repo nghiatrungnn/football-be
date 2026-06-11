@@ -372,58 +372,19 @@ const increaseVoucherUsedCount = async ({
 
 }) => {
 
-  if (
-  firstBooking &&
-  firstBooking.voucher_code
-) {
+  if (!voucherId) return;
 
-  const foundVoucher =
-    await voucher.findOne({
+  await voucher.increment(
+    {
+      usedCount: 1,
+    },
+    {
       where: {
-        code:
-          firstBooking.voucher_code,
+        id: voucherId,
       },
       transaction,
-    });
-
-  if (foundVoucher) {
-
-    const [usedVoucher, created] =
-      await userVoucher.findOrCreate({
-
-        where: {
-          userId:
-            firstBooking.userId,
-
-          voucherId:
-            foundVoucher.id,
-        },
-
-        defaults: {
-          bookingId:
-            firstBooking.id,
-        },
-
-        transaction,
-      });
-
-    if (created) {
-
-      await voucher.increment(
-        {
-          usedCount: 1,
-        },
-        {
-          where: {
-            id:
-              foundVoucher.id,
-          },
-          transaction,
-        }
-      );
     }
-  }
-}
+  );
 
 };
 

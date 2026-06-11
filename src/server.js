@@ -787,9 +787,10 @@ async function startServer() {
     // ==========================================
     // Đồng bộ model
     // ==========================================
-    await sequelize.sync({
-      alter: true,
-    });
+    // await sequelize.sync({
+    //   alter: true,
+    // });
+    await sequelize.sync();
 
     console.log(
       "🔥 DB synced"

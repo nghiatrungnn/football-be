@@ -165,14 +165,16 @@ const getVouchers =
 
 
       return res
+  .status(200)
+  .json(
+    vouchers.map((v) => ({
+      ...v.toJSON(),
 
-        .status(200)
-
-        .json(
-
-          vouchers
-
-        );
+      remainingUses:
+        v.usageLimit -
+        v.usedCount,
+    }))
+  );
 
     } catch (error) {
 

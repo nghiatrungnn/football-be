@@ -1145,12 +1145,32 @@ if (
   firstBooking.voucher_code
 ) {
 
+  const foundVoucher =
+  await voucher.findOne({
+
+    where: {
+
+      code:
+        firstBooking.voucher_code,
+
+    },
+
+    transaction,
+
+  });
+
+if (foundVoucher) {
+
   await voucherService
     .increaseVoucherUsedCount({
-      voucherCode:
-        firstBooking.voucher_code,
+
+      voucherId:
+        foundVoucher.id,
+
       transaction,
+
     });
+}
 
   await voucherService
     .createUserVoucher({

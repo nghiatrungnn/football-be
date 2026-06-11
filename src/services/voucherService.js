@@ -213,59 +213,35 @@ const validateVoucher =
     // MỖI USER CHỈ DÙNG 1 LẦN
     // =====================================================
     //
-    const ownedVoucher =
+   if (foundVoucher.isOneTimePerUser) {
 
-  await userVoucher.findOne({
+  const usedVoucher =
+    await userVoucher.findOne({
 
-    where: {
+      where: {
 
-      userId,
+        userId,
 
-      voucherId:
-        foundVoucher.id,
+        voucherId:
+          foundVoucher.id,
 
-    },
+      },
 
-    transaction,
+      transaction,
 
-  });
+    });
 
+  if (usedVoucher) {
 
-// Không sở hữu voucher
-if (
+    return {
 
-  !ownedVoucher
+      valid: false,
 
-) {
+      message:
+        "Bạn đã dùng voucher này",
 
-  return {
-
-    valid: false,
-
-    message:
-
-      "Bạn không sở hữu voucher này",
-
-  };
-}
-
-
-// Đã dùng voucher
-if (
-
-  ownedVoucher.usedAt
-
-) {
-
-  return {
-
-    valid: false,
-
-    message:
-
-      "Bạn đã dùng voucher này",
-
-  };
+    };
+  }
 }
     // =====================================================
     // TÍNH GIẢM GIÁ

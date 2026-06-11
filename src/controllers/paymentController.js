@@ -382,6 +382,23 @@ const cancelUrl =
     0
   );
 
+  console.log(
+  "BOOKINGS BEFORE PAYOS =>",
+  bookings.map((b) => ({
+    id: b.id,
+    total_price: b.total_price,
+    discount_amount: b.discount_amount,
+    final_amount: b.final_amount,
+    deposit_amount: b.deposit_amount,
+    voucher_code: b.voucher_code,
+  }))
+);
+
+console.log(
+  "PAYOS AMOUNT =>",
+  payosAmount
+);
+
 console.log(
   "PAYOS AMOUNT =>",
   payosAmount

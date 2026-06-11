@@ -587,25 +587,27 @@ const deleteNotification =
       // KHÔNG TÌM THẤY
       // =====================================================
       //
-      if (
+      // =====================================================
+// KHÔNG TÌM THẤY
+// =====================================================
+if (
 
-        !result
+  result === null
 
-      ) {
+) {
 
-        return res.status(404)
+  return res.status(404)
 
-          .json({
+    .json({
 
-            success: false,
+      success: false,
 
-            message:
+      message:
 
-              "Notification not found",
+        "Notification not found",
 
-          });
-      }
-
+    });
+}
 
       res.json({
 

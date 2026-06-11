@@ -335,7 +335,17 @@ const markAllAsRead =
 
           where: {
 
-            userId,
+            [Op.or]: [
+
+              {
+                userId,
+              },
+
+              {
+                isGlobal: true,
+              },
+
+            ],
 
             isRead: false,
 
@@ -379,10 +389,6 @@ const deleteNotification =
       });
 
 
-    // =====================================================
-    // KHÔNG TÌM THẤY
-    // =====================================================
-    //
     if (
 
       !notification
@@ -391,12 +397,6 @@ const deleteNotification =
 
       return null;
     }
-
-
-    // =====================================================
-    // XÓA
-    // =====================================================
-    //
     await notification.destroy();
 
 

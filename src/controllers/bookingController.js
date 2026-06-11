@@ -284,7 +284,7 @@ await b.save();
           "booked",
         ],
       },
-
+// Kiểm tra khoảng thời gian có bị trùng với booking khác không
       [Op.and]: [
 
         sequelize.where(
@@ -292,7 +292,7 @@ await b.save();
           "<",
           endDateTime
         ),
-
+// end_time của booking khác > start_time của slot mới
         sequelize.where(
           sequelize.col("end_time"),
           ">",
@@ -300,7 +300,7 @@ await b.save();
         ),
       ],
     },
-
+// Sử dụng transaction
     transaction,
   });
 // Nếu bị trùng

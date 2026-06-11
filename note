@@ -8,3 +8,23 @@
 // Op.lt   // <
 // Op.in   // IN
 // Op.notIn // NOT IN
+
+//sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu.
+//Nếu trong quá trình đặt sân xảy ra lỗi ở bất kỳ bước nào thì tất cả các thay đổi trước đó sẽ được hoàn tác (rollback), 
+// tránh tình trạng dữ liệu bị lưu dở dang."
+
+
+//"ApiService là lớp trung gian giữa frontend Flutter và backend Node.js. 
+//Nó có nhiệm vụ gửi HTTP request đến các API, nhận dữ liệu trả về và chuyển thành dạng mà frontend có thể sử dụng."
+
+// lệnh xóa database reset id về 1 
+// TRUNCATE TABLE
+//     bookings,
+//     field_pricings,
+//     fields,
+//     notifications,
+//     reviews,
+//     user_vouchers,
+//     users,
+//     vouchers
+// RESTART IDENTITY CASCADE;

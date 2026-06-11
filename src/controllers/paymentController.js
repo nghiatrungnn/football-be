@@ -977,17 +977,10 @@ const paymentWebhook =
         // và bỏ qua webhook.
         //
         if (hasExpired) {
-
-          await transaction.rollback();
-
-          console.log(
-
-            "BOOKING EXPIRED - IGNORE PAYMENT"
-
-          );
-
-          return res.send("OK");
-        }
+  console.log(
+    "BOOKING EXPIRED BUT PAYMENT SUCCESS"
+  );
+}
 
         // =====================================================
         // KIỂM TRA BOOKING ĐÃ BỊ HỦY CHƯA

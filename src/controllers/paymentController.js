@@ -374,13 +374,31 @@ const cancelUrl =
       // description:
       // mô tả giao dịch.
       //
-      const payosAmount =
-  bookings.reduce(
-    (sum, b) =>
-      sum +
-      (b.deposit_amount || 0),
+      let payosAmount;
+
+if (booking.payment_method === "deposit") {
+  payosAmount = bookings.reduce(
+    (sum, b) => sum + (b.deposit_amount || 0),
     0
   );
+} else {
+  payosAmount = amount;
+}
+
+console.log(
+  "FRONTEND AMOUNT =>",
+  amount
+);
+
+console.log(
+  "PAYOS AMOUNT =>",
+  payosAmount
+);
+
+console.log(
+  "PAYMENT METHOD =>",
+  booking.payment_method
+);
 
   console.log(
   "BOOKINGS BEFORE PAYOS =>",

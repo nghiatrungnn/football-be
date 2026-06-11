@@ -362,7 +362,7 @@ const cancelUrl =
     : `footballbooking://payment-cancel?orderCode=${orderCode}`;
 
       // =====================================================
-      // TẠO BODY GỬI PAYOS
+      // TẠO BODY GỬI PAYO
       // =====================================================
       //
       // orderCode:

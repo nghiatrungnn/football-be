@@ -39,7 +39,7 @@ app.use("/api/payments", paymentRoutes);
 // voucher routes
 app.use("/api/vouchers", voucherRoutes);
 
-// notification routes
+// notification route
 app.use("/api/notifications", notificationRoutes);
 
 

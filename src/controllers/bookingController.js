@@ -665,7 +665,7 @@ if (
 // Chỉ cho dùng voucher khi thanh toán toàn bộ
 if (
   voucher_code?.trim() &&
-  payment_method === "full"
+  payment_method === "banking"
 ){
 // Gọi service kiểm tra voucher có hợp lệ không
   const voucherResult =
@@ -949,7 +949,7 @@ booking.final_amount =
   duration;
 // Lưu mã voucher đã sử dụng
 booking.voucher_code =
-  payment_method === "full"
+  payment_method === "banking"
     ? voucher_code?.trim() || null
     : null;
 

@@ -353,12 +353,12 @@ const createPayment =
 
       const returnUrl =
   platform === "web"
-    ? "https://datn-w9iy-nq07tgd4w-hoang-tu-s-projects.vercel.app/payment-success"
+    ? "https://datn-w9iy-git-main-hoang-tu-s-projects.vercel.app/payment-success"
     : `footballbooking://payment-success?orderCode=${orderCode}`;
 
 const cancelUrl =
   platform === "web"
-    ? "https://datn-w9iy-nq07tgd4w-hoang-tu-s-projects.vercel.app/payment-cancel"
+    ? "https://datn-w9iy-git-main-hoang-tu-s-projects.vercel.app/payment-cancel"
     : `footballbooking://payment-cancel?orderCode=${orderCode}`;
 
       // =====================================================

@@ -4,7 +4,6 @@ const voucher =
 const userVoucher =
   require("../models/userVoucher");
 
-
 // =====================================================
 // VALIDATE VOUCHER
 // =====================================================
@@ -214,54 +213,60 @@ const validateVoucher =
     // MỖI USER CHỈ DÙNG 1 LẦN
     // =====================================================
     //
-    if (
+    const ownedVoucher =
 
-      foundVoucher
+  await userVoucher.findOne({
 
-        .isOneTimePerUser &&
+    where: {
 
-      userId
+      userId,
 
-    ) {
+      voucherId:
+        foundVoucher.id,
 
-      const existed =
+    },
 
-        await userVoucher.findOne({
+    transaction,
 
-          where: {
-
-            userId,
-
-            voucherId:
-
-              foundVoucher.id,
-
-          },
-
-          transaction,
-
-        });
+  });
 
 
-      if (
+// Không sở hữu voucher
+if (
 
-        existed
+  !ownedVoucher
 
-      ) {
+) {
 
-        return {
+  return {
 
-          valid: false,
+    valid: false,
 
-          message:
+    message:
 
-            "Bạn đã dùng voucher này",
+      "Bạn không sở hữu voucher này",
 
-        };
-      }
-    }
+  };
+}
 
 
+// Đã dùng voucher
+if (
+
+  ownedVoucher.usedAt
+
+) {
+
+  return {
+
+    valid: false,
+
+    message:
+
+      "Bạn đã dùng voucher này",
+
+  };
+}
     // =====================================================
     // TÍNH GIẢM GIÁ
     // =====================================================
@@ -379,70 +384,41 @@ const validateVoucher =
     };
   };
 
-
 // =====================================================
-// TĂNG SỐ LẦN ĐÃ SỬ DỤNG
+// TĂNG SỐ LƯỢT DÙNG VOUCHER
 // =====================================================
-//
-// usedCount += 1
-//
-const increaseVoucherUsedCount =
 
-  async ({
+const increaseVoucherUsedCount = async ({
 
-    voucherCode,
+  voucherId,
 
-    transaction,
+  transaction,
 
-  }) => {
+}) => {
 
-    if (
+  await voucher.increment(
 
-      !voucherCode
+    {
 
-    ) return;
+      usedCount: 1,
 
+    },
 
-    const foundVoucher =
+    {
 
-      await voucher.findOne({
+      where: {
 
-        where: {
+        id: voucherId,
 
-          code:
-
-            voucherCode,
-
-        },
-
-        transaction,
-
-        lock:
-
-          transaction?.LOCK
-
-            ?.UPDATE,
-
-      });
-
-
-    if (
-
-      !foundVoucher
-
-    ) return;
-
-
-    foundVoucher.usedCount += 1;
-
-
-    await foundVoucher.save({
+      },
 
       transaction,
 
-    });
-  };
+    }
 
+  );
+
+};
 
 // =====================================================
 // LƯU LỊCH SỬ USER DÙNG VOUCHER

@@ -6,9 +6,12 @@
 //
 // Model bảng users trong database.
 //
-const { user: User } =
-
-  require("../models");
+const {
+  user: User,
+  Notification,
+  userVoucher,
+  voucher,
+} = require("../models");
 
 
 // =====================================================
@@ -551,7 +554,7 @@ const passwordRegex =
 if (
   !passwordRegex.test(password)
 ) {
-  return res.status(400).json({
+  return res.status(400).json({ 
     message:
       "Mật khẩu phải có ít nhất 8 ký tự, gồm chữ, số và ký tự đặc biệt",
   });
@@ -601,6 +604,50 @@ if (
           "user",
 
       });
+
+// =====================================================
+// TẶNG VOUCHER CHÀO MỪNG
+// =====================================================
+
+const welcomeVoucher =
+  await voucher.findOne({
+    where: {
+      code: "SALE200",
+      isActive: true,
+    },
+  });
+
+if (welcomeVoucher) {
+
+  await userVoucher.create({
+
+    userId: user.id,
+
+    voucherId:
+      welcomeVoucher.id,
+
+    bookingId: null,
+
+    usedAt: null,
+  });
+
+  // =====================================================
+  // GỬI THÔNG BÁO
+  // =====================================================
+
+  await Notification.create({
+
+    userId: user.id,
+
+    title:
+      "🎉 Chào mừng thành viên mới",
+
+    message:
+  `Bạn đã nhận được mã ${welcomeVoucher.code} giảm ${welcomeVoucher.value}% (tối đa ${welcomeVoucher.maxDiscount.toLocaleString()}đ).`,
+
+    type: "promotion",
+  });
+}
 
 
     // =====================================================

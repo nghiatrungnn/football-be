@@ -669,13 +669,15 @@ if (
 ){
 // Gọi service kiểm tra voucher có hợp lệ không
   const voucherResult =
-    await voucherService.validateVoucher({
-      code: voucher_code,
+  await voucherService.validateVoucher({
+    code: voucher_code,
 
-      amount: total_price,
+    amount: total_price,
 
-      transaction,
-    });
+    userId: req.user.id,
+
+    transaction,
+  });
 
   if (!voucherResult.valid) {
 

@@ -180,6 +180,18 @@ const createPayment =
 
         });
 
+        console.log(
+  "BOOKINGS BEFORE PAYOS =>",
+  bookings.map((b) => ({
+    id: b.id,
+    total_price: b.total_price,
+    discount_amount: b.discount_amount,
+    final_amount: b.final_amount,
+    deposit_amount: b.deposit_amount,
+    voucher_code: b.voucher_code,
+  }))
+);
+
       // =====================================================
       // KHÔNG TÌM THẤY BOOKING
       // =====================================================
@@ -368,35 +380,30 @@ const createPayment =
       // description:
       // mô tả giao dịch.
       //
-      const body = {
+      const payosAmount =
+  bookings.reduce(
+    (sum, b) =>
+      sum +
+      (b.deposit_amount || 0),
+    0
+  );
 
-        orderCode,
+console.log(
+  "PAYOS AMOUNT =>",
+  payosAmount
+);
 
-        amount:
-
-          bookings.reduce(
-
-            (sum, b) =>
-
-              sum +
-
-              (b.deposit_amount || 0),
-
-            0
-
-          ),
-
-        description:
-
-          `Ten:${booking.user.name}San:${booking.field.name}`
-
-            .slice(0, 25),
-
-        returnUrl,
-
-        cancelUrl,
-
-      };
+const body = {
+  orderCode,
+  amount: payosAmount,
+  description:
+    `Ten:${booking.user.name}San:${booking.field.name}`.slice(
+      0,
+      25
+    ),
+  returnUrl,
+  cancelUrl,
+};
 
       // =====================================================
       // TẠO CHỮ KÝ BẢO MẬT

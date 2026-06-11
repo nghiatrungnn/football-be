@@ -36,9 +36,9 @@ const userVoucher =
   },
 },
 
-     bookingId: {
+    bookingId: {
   type: DataTypes.INTEGER,
-  allowNull: false,
+  allowNull: true,
   references: {
     model: "bookings",
     key: "id",
@@ -46,12 +46,10 @@ const userVoucher =
 },
 
       usedAt: {
-        type:
-          DataTypes.DATE,
+  type: DataTypes.DATE,
 
-        defaultValue:
-          DataTypes.NOW,
-      },
+  allowNull: true,
+},
     },
 
     {

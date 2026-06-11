@@ -604,52 +604,6 @@ if (
           "user",
 
       });
-
-// =====================================================
-// TẶNG VOUCHER CHÀO MỪNG
-// =====================================================
-
-const welcomeVoucher =
-  await voucher.findOne({
-    where: {
-      code: "SALE200",
-      isActive: true,
-    },
-  });
-
-if (welcomeVoucher) {
-
-  await userVoucher.create({
-
-    userId: user.id,
-
-    voucherId:
-      welcomeVoucher.id,
-
-    bookingId: null,
-
-    usedAt: null,
-  });
-
-  // =====================================================
-  // GỬI THÔNG BÁO
-  // =====================================================
-
-  await Notification.create({
-
-    userId: user.id,
-
-    title:
-      "🎉 Chào mừng thành viên mới",
-
-    message:
-  `Bạn đã nhận được mã ${welcomeVoucher.code} giảm ${welcomeVoucher.value}% (tối đa ${welcomeVoucher.maxDiscount.toLocaleString()}đ).`,
-
-    type: "promotion",
-  });
-}
-
-
     // =====================================================
     // TRẢ KẾT QUẢ
     // =====================================================
